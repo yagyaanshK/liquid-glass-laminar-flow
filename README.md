@@ -1,8 +1,12 @@
 # 💎 Liquid Glass Laminar Flow Showcase
 
 A high-fidelity refraction engine showcase demonstrating three distinct architectural patterns for achieving "Liquid Glass" effects in the browser. This repository is designed to be **Agent-ready**—providing structured implementation detail files that you can feed directly into AI coding assistants (like Gemini, Claude, or GPT) to replicate these effects in your own projects.
+_This project features a background image captured by **Yagyaansh Khaneja**. Any reuse of this asset should provide direct credit to the photographer._
 
 ![Repo Header](public/bg.jpg)
+
+**Connect with the Artist:**
+[Instagram](https://www.instagram.com/picturexyou_official/) | [Unsplash](https://unsplash.com/@yagyaansh) | [Pexels](https://www.pexels.com/@yagyaansh)
 
 ## 🚀 Overview
 This project explores the "Liquid Glass" design language (popularized by modern mobile OS interfaces) where UI elements behave as thick, curved geometric lenses. 
