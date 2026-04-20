@@ -174,8 +174,8 @@ const FRAGMENT_SHADER = `
       const float GOLDEN_ANGLE = 2.39996323; // ~137.5 degrees
       float fSamples;
 
-      if (u_frost <= 2.0) {
-        // Light frost — 32 samples is plenty
+      if (u_frost <= 1.0) {
+        // Very light frost — 32 samples
         fSamples = 32.0;
         for (int i = 0; i < 32; i++) {
           float fi = float(i);
@@ -187,8 +187,8 @@ const FRAGMENT_SHADER = `
           sum.b += texture2D(u_texture, refracted + caOffB + off).b;
           sum.a += texture2D(u_texture, refracted + off).a;
         }
-      } else if (u_frost <= 3.5) {
-        // Medium frost — 64 samples
+      } else if (u_frost <= 2.5) {
+        // Light-medium frost — 64 samples
         fSamples = 64.0;
         for (int i = 0; i < 64; i++) {
           float fi = float(i);
@@ -200,13 +200,26 @@ const FRAGMENT_SHADER = `
           sum.b += texture2D(u_texture, refracted + caOffB + off).b;
           sum.a += texture2D(u_texture, refracted + off).a;
         }
-      } else {
-        // Heavy frost — 96 samples for silky smooth blur
+      } else if (u_frost <= 4.0) {
+        // Medium-heavy frost — 96 samples
         fSamples = 96.0;
         for (int i = 0; i < 96; i++) {
           float fi = float(i);
           float angle = fi * GOLDEN_ANGLE;
           float dist = sqrt((fi + 0.5) / 96.0) * radius;
+          vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
+          sum.r += texture2D(u_texture, refracted + caOffR + off).r;
+          sum.g += texture2D(u_texture, refracted + off).g;
+          sum.b += texture2D(u_texture, refracted + caOffB + off).b;
+          sum.a += texture2D(u_texture, refracted + off).a;
+        }
+      } else {
+        // Heavy frost — 128 samples 
+        fSamples = 128.0;
+        for (int i = 0; i < 128; i++) {
+          float fi = float(i);
+          float angle = fi * GOLDEN_ANGLE;
+          float dist = sqrt((fi + 0.5) / 128.0) * radius;
           vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
           sum.r += texture2D(u_texture, refracted + caOffR + off).r;
           sum.g += texture2D(u_texture, refracted + off).g;
