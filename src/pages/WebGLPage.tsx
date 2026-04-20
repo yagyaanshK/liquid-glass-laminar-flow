@@ -85,25 +85,25 @@ export default function WebGLPage() {
           {/* Circle */}
           <div style={{ textAlign: 'center' }}>
             <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px' }}>Circle SDF</h2>
-            <div ref={circleRef} style={{ width: 450, height: 450, borderRadius: '50%' }} />
+            <div ref={circleRef} style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1', borderRadius: '50%' }} />
           </div>
 
           {/* Ellipse */}
           <div style={{ textAlign: 'center' }}>
             <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px' }}>Ellipse SDF</h2>
-            <div ref={ellipseRef} style={{ width: 650, height: 380, borderRadius: '50%' }} />
+            <div ref={ellipseRef} style={{ width: 'min(650px, 90vw)', aspectRatio: '650/380', borderRadius: '50%' }} />
           </div>
 
           {/* Equilateral Triangle */}
           <div style={{ textAlign: 'center' }}>
             <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px' }}>Triangle SDF</h2>
-            <div ref={triangleRef} style={{ width: 450, height: 450 }} />
+            <div ref={triangleRef} style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1' }} />
           </div>
 
           {/* Hexagon */}
           <div style={{ textAlign: 'center' }}>
             <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px' }}>Hexagon SDF</h2>
-            <div ref={hexagonRef} style={{ width: 450, height: 450 }} />
+            <div ref={hexagonRef} style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1' }} />
           </div>
         </div>
       </div>

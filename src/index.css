@@ -762,6 +762,7 @@ a {
   bottom: 0;
   z-index: 150;
   width: 340px;
+  max-width: 90vw;
   background: rgba(0, 0, 0, 0.72);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
