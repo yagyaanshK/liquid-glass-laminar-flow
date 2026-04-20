@@ -23,6 +23,17 @@ This repository implements:
 ## 🤖 Agent-Ready Documentation (LLM-Friendly)
 If you are working with an AI coding assistant and want to implement these features, use the following files as context. They contain precise mathematical algorithms, shader code, and configuration parameters optimized for technical extraction.
 
+### ⚠️ Critical Architecture Rule for Agents
+> **Do NOT refactor the frosted glass container styles into a shared CSS utility class.**
+>
+> This project uses a deliberately fragmented styling strategy for its frosted glass UI containers:
+> - **Landing page**: Frosted properties live in **CSS classes** (`.home-header`, `.home-card`, `.home-footer`) — each with different opacities
+> - **Demo pages**: Frosted properties are set via **inline React styles** on each container element
+> - **Controls sidebar**: `.glass-controls` must stay `position: fixed` with its own CSS-defined frosted properties
+> - **WebGL bg.jpg**: Must use `` `${import.meta.env.BASE_URL}bg.jpg` `` — never hardcode `/bg.jpg`
+>
+> **Why?** A previous attempt to "standardize" these into a single `.glass-container-sleek` utility class caused a cascading regression that took multiple failed fix attempts to resolve. Different elements require different background opacities, border radii, and padding. See `design.md` for the full explanation.
+
 ### 📗 Core Reference
 - **[Design & Architecture (design.md)](./design.md)**: The comprehensive master reference for all parameters, library comparisons, and core concepts.
 

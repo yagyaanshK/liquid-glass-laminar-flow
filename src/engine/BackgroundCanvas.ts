@@ -27,9 +27,10 @@ export class BackgroundCanvas {
     this._resize();
     window.addEventListener('resize', this._resize, { passive: true });
 
-    // Load the background photo
+    // Load the background photo — use Vite's BASE_URL so the path
+    // resolves correctly on GitHub Pages (e.g. /liquid-glass-laminar-flow/bg.jpg)
     const img = new Image();
-    img.src = '/bg.jpg';
+    img.src = `${import.meta.env.BASE_URL}bg.jpg`;
     img.onload = () => { this.bgImage = img; };
   }
 

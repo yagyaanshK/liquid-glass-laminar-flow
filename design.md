@@ -31,6 +31,25 @@ Apple's "Liquid Glass" (introduced in iOS/macOS 26) is a UI design language wher
 
 > **Why CSS `backdrop-filter` fails:** CSS blur only averages pixels in a flat kernel. It cannot *displace* pixels sideways. A real glass lens bends light directionally based on surface curvature — this requires per-pixel UV offset computation, which is a shader operation.
 
+> [!CAUTION]
+> ### Frosted Glass Container Architecture — DO NOT CHANGE
+>
+> The frosted glass effect on UI containers (header, cards, footer, controls sidebar, info boxes) uses a **deliberately fragmented styling strategy**. This is not a code smell — it is required.
+>
+> **Landing page** (`Home.tsx`): Frosted properties (`background`, `backdrop-filter`, `border`) are defined **in CSS classes** (`.home-header`, `.home-card`, `.home-footer`). Each element has its own opacity and blur values.
+>
+> **Demo pages** (`CssSvgPage.tsx`, `Html2CanvasPage.tsx`): Frosted properties are applied via **inline React styles** on each container div. This is because demo containers are not reusable components — they're one-off layout elements.
+>
+> **Controls sidebar** (`.glass-controls`): Uses **CSS class** with `position: fixed; z-index: 50` and its own frosted properties. Must remain `position: fixed` — never wrap it in a non-fixed parent.
+>
+> **WebGL page background**: Uses `BackgroundCanvas` with `img.src = import.meta.env.BASE_URL + 'bg.jpg'`. Never hardcode `/bg.jpg`.
+>
+> #### What Breaks It
+> - ❌ Replacing per-element styles with a shared utility class (e.g. `.glass-container-sleek`) — different elements need different opacities, borders, and radii
+> - ❌ Removing inline styles from demo pages and relying only on CSS classes — the demo containers are too specific for generic classes
+> - ❌ Wrapping `.glass-controls` in extra components that change its positioning model
+> - ❌ Hardcoding asset paths without `import.meta.env.BASE_URL`
+
 ---
 
 ## 2. Implementation Approaches
