@@ -85,26 +85,26 @@ export default function WebGLPage() {
 
           {/* Circle */}
           <div style={{ textAlign: 'center' }}>
-            <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px' }}>Circle SDF</h2>
             <div ref={circleRef} style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1', borderRadius: '50%' }} />
+            <h2 style={{ color: '#fff', marginTop: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px', display: 'inline-block' }}>Circle SDF</h2>
           </div>
 
           {/* Ellipse */}
           <div style={{ textAlign: 'center' }}>
-            <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px' }}>Ellipse SDF</h2>
             <div ref={ellipseRef} style={{ width: 'min(650px, 90vw)', aspectRatio: '650/380', borderRadius: '50%' }} />
+            <h2 style={{ color: '#fff', marginTop: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px', display: 'inline-block' }}>Ellipse SDF</h2>
           </div>
 
           {/* Equilateral Triangle */}
           <div style={{ textAlign: 'center' }}>
-            <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px' }}>Triangle SDF</h2>
             <div ref={triangleRef} style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1' }} />
+            <h2 style={{ color: '#fff', marginTop: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px', display: 'inline-block' }}>Triangle SDF</h2>
           </div>
 
           {/* Hexagon */}
           <div style={{ textAlign: 'center' }}>
-            <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px' }}>Hexagon SDF</h2>
             <div ref={hexagonRef} style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1' }} />
+            <h2 style={{ color: '#fff', marginTop: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px', display: 'inline-block' }}>Hexagon SDF</h2>
           </div>
         </div>
       </div>
