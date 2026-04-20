@@ -171,20 +171,51 @@ const FRAGMENT_SHADER = `
     if (u_frost > 0.0) {
       float radius = u_frost * 6.0;
       vec4 sum = vec4(0.0);
-      const int SAMPLES = 64;
       const float GOLDEN_ANGLE = 2.39996323; // ~137.5 degrees
-      for (int i = 0; i < SAMPLES; i++) {
-        float fi = float(i);
-        float angle = fi * GOLDEN_ANGLE;
-        float dist = sqrt((fi + 0.5) / float(SAMPLES)) * radius;
-        vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
-        // Integrate CA: sample R, G, B from their respective offset positions
-        sum.r += texture2D(u_texture, refracted + caOffR + off).r;
-        sum.g += texture2D(u_texture, refracted + off).g;
-        sum.b += texture2D(u_texture, refracted + caOffB + off).b;
-        sum.a += texture2D(u_texture, refracted + off).a;
+      float fSamples;
+
+      if (u_frost <= 2.0) {
+        // Light frost — 32 samples is plenty
+        fSamples = 32.0;
+        for (int i = 0; i < 32; i++) {
+          float fi = float(i);
+          float angle = fi * GOLDEN_ANGLE;
+          float dist = sqrt((fi + 0.5) / 32.0) * radius;
+          vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
+          sum.r += texture2D(u_texture, refracted + caOffR + off).r;
+          sum.g += texture2D(u_texture, refracted + off).g;
+          sum.b += texture2D(u_texture, refracted + caOffB + off).b;
+          sum.a += texture2D(u_texture, refracted + off).a;
+        }
+      } else if (u_frost <= 3.5) {
+        // Medium frost — 64 samples
+        fSamples = 64.0;
+        for (int i = 0; i < 64; i++) {
+          float fi = float(i);
+          float angle = fi * GOLDEN_ANGLE;
+          float dist = sqrt((fi + 0.5) / 64.0) * radius;
+          vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
+          sum.r += texture2D(u_texture, refracted + caOffR + off).r;
+          sum.g += texture2D(u_texture, refracted + off).g;
+          sum.b += texture2D(u_texture, refracted + caOffB + off).b;
+          sum.a += texture2D(u_texture, refracted + off).a;
+        }
+      } else {
+        // Heavy frost — 96 samples for silky smooth blur
+        fSamples = 96.0;
+        for (int i = 0; i < 96; i++) {
+          float fi = float(i);
+          float angle = fi * GOLDEN_ANGLE;
+          float dist = sqrt((fi + 0.5) / 96.0) * radius;
+          vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
+          sum.r += texture2D(u_texture, refracted + caOffR + off).r;
+          sum.g += texture2D(u_texture, refracted + off).g;
+          sum.b += texture2D(u_texture, refracted + caOffB + off).b;
+          sum.a += texture2D(u_texture, refracted + off).a;
+        }
       }
-      refrCol = sum / float(SAMPLES);
+
+      refrCol = sum / fSamples;
     } else {
       refrCol  = texture2D(u_texture, refracted);
       refrCol += texture2D(u_texture, refracted + vec2( texel.x, 0.0));
