@@ -707,3 +707,5 @@ a {
     margin: 1rem auto;
   }
 }
+
+@media (orientation: landscape) { .photo-bg, .demo-bg { background-image: url('/bg-landscape.jpg') !important; } }
