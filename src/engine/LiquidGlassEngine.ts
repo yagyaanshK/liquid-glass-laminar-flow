@@ -109,9 +109,12 @@ const FRAGMENT_SHADER = `
     } else if (u_shape == 2) {
       return sdEllipse(p_px, b_px * 0.85);
     } else if (u_shape == 3) {
-      return sdEquilateralTriangle(p_px, min(b_px.x, b_px.y) * 0.85);
+      // Standard SDF rounding: subtract radius from the raw SDF
+      float rawSize = min(b_px.x, b_px.y) * 0.85 - u_radius;
+      return sdEquilateralTriangle(p_px, rawSize) - u_radius;
     } else if (u_shape == 4) {
-      return sdHexagon(p_px, min(b_px.x, b_px.y) * 0.85);
+      float rawSize = min(b_px.x, b_px.y) * 0.85 - u_radius;
+      return sdHexagon(p_px, rawSize) - u_radius;
     }
     // Default rect (shape 0)
     return sdRoundBox(p_px, b_px, u_radius);
