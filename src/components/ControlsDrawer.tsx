@@ -40,6 +40,12 @@ export function ControlsDrawer({ children, defaultOpen = false }: ControlsDrawer
       <div 
         ref={drawerRef} 
         className={`controls-drawer ${isOpen ? 'open' : ''}`}
+        style={{
+          background: 'rgba(0, 0, 0, 0.72)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+        }}
       >
         {children}
       </div>

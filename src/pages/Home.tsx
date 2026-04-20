@@ -31,7 +31,12 @@ export default function Home() {
       <div className="photo-bg" />
 
       {/* Content */}
-      <header className="home-header">
+      <header className="home-header" style={{
+        background: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+      }}>
         <h1 className="home-title">Liquid Glass</h1>
         <p className="home-subtitle">
           A comparison of web-based approaches to Apple's Liquid Glass refraction effect.
@@ -42,7 +47,13 @@ export default function Home() {
 
       <section className="home-grid">
         {APPROACHES.map(a => (
-          <Link key={a.path} to={a.path} className="home-card" style={{ '--card-accent': a.color } as React.CSSProperties}>
+          <Link key={a.path} to={a.path} className="home-card" style={{
+            '--card-accent': a.color,
+            background: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          } as React.CSSProperties}>
             <div className="card-number">{APPROACHES.indexOf(a) + 1}</div>
             <h2 className="card-title">{a.title}</h2>
             <p className="card-desc">{a.desc}</p>
