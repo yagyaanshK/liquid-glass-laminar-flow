@@ -160,15 +160,17 @@ const FRAGMENT_SHADER = `
     vec2 refracted = mapped + offset;
     vec2 texel = 1.0 / u_texResolution;
 
-    // Sample with optional frost
+    // Sample with optional frost (golden angle spiral disk blur)
     vec4 refrCol;
     if (u_frost > 0.0) {
-      float radius = u_frost * 4.0;
+      float radius = u_frost * 6.0;
       vec4 sum = vec4(0.0);
-      const int SAMPLES = 16;
+      const int SAMPLES = 32;
+      const float GOLDEN_ANGLE = 2.39996323; // ~137.5 degrees
       for (int i = 0; i < SAMPLES; i++) {
-        float angle = hash(v_uv + float(i)) * 6.283185;
-        float dist = sqrt(hash(v_uv - float(i))) * radius;
+        float fi = float(i);
+        float angle = fi * GOLDEN_ANGLE;
+        float dist = sqrt((fi + 0.5) / float(SAMPLES)) * radius;
         vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
         sum += texture2D(u_texture, refracted + off);
       }
