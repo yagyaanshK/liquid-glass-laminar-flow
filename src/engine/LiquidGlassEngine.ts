@@ -39,9 +39,10 @@ const FRAGMENT_SHADER = `
   uniform bool  u_specular;
   uniform int   u_shape;           // 0: rect, 1: circle, 2: ellipse, 3: triangle, 4: hexagon
 
-  // Signed distance to a rounded rectangle
+  // Signed distance to a rounded rectangle (Inigo Quilez)
   float sdRoundBox(vec2 p, vec2 b, float r) {
-    return length(max(abs(p) - b + r, 0.0)) - r;
+    vec2 d = abs(p) - b + r;
+    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r;
   }
 
   // Pseudo-random hash
