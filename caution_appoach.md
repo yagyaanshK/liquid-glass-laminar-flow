@@ -115,3 +115,72 @@ Every fix after `d855993` tried to patch symptoms instead of reverting to the wo
 2. **`z-index: 1` on `.demo-area` is fine** — the fixed-position background is painted below it at the viewport level
 3. **`.glass-controls` must be `position: fixed`** with its own frosted properties in CSS — don't wrap it in extra components
 4. **Asset paths** must use `import.meta.env.BASE_URL` prefix for GitHub Pages deployment
+
+---
+
+## New Finding (April 2026): Vite Production CSS Bundler Strips `backdrop-filter`
+
+### Symptom
+
+After the z-index refactoring (moving WebGL overlay to `z-index: -1`, background canvas to `z-index: -2`)
+and restyling the navbar to dark frosted glass, the site rendered **perfectly in local `npm run dev`** but
+showed **transparent/unfrosted UI elements on the live GitHub Pages deployment** — specifically:
+
+- Home page header box and cards
+- The `.page-topbar` navbar
+- The `.controls-drawer` slide-out panel
+
+Interestingly, the **"Pure CSS Frosted Glass" description box on CssSvgPage was rendering correctly** on
+the live site even when all other frosted elements were broken. This was the key diagnostic clue.
+
+### Root Cause
+
+**Vite's CSS bundler processes and potentially strips/reorders `backdrop-filter` declarations when building
+for production.** The `backdrop-filter` + `-webkit-backdrop-filter` pair in CSS class definitions gets
+processed differently than when the same properties are applied as React inline `style` props.
+
+The working element ("Pure CSS Frosted Glass" header) was styled with an **inline React `style` prop**:
+```tsx
+style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
+```
+
+All failing elements were styled via **CSS classes in `index.css`**:
+```css
+.page-topbar {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+```
+
+This is NOT a z-index or stacking context issue. The background image loaded correctly on the live site.
+The `backdrop-filter` property itself was the victim of CSS build-time processing.
+
+### Fix
+
+Convert all frosted-glass UI chrome elements from CSS class definitions to **inline React `style` props**:
+
+```tsx
+// PageShell.tsx — navbar
+<nav className="page-topbar" style={{
+  background: 'rgba(0, 0, 0, 0.7)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+}}>
+
+// Home.tsx — header and cards
+// ControlsDrawer.tsx — slide-out drawer panel
+// Pattern: always use React inline style props for backdropFilter
+```
+
+### Rule to Remember
+
+> **In a Vite + React project, never apply `backdrop-filter` (and its `-webkit-` prefix) via CSS classes
+> for elements that must render correctly on GitHub Pages production builds. Always use inline React
+> `style` props for `backdropFilter` and `WebkitBackdropFilter`.** CSS classes work in dev mode but
+> are processed differently by the Vite production bundler.
+
+### Branch
+
+Fix implemented in `inline-style-all` branch, merged into `master` on 21 April 2026.
