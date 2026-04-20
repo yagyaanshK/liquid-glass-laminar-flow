@@ -171,7 +171,7 @@ const FRAGMENT_SHADER = `
     if (u_frost > 0.0) {
       float radius = u_frost * 6.0;
       vec4 sum = vec4(0.0);
-      const int SAMPLES = 32;
+      const int SAMPLES = 64;
       const float GOLDEN_ANGLE = 2.39996323; // ~137.5 degrees
       for (int i = 0; i < SAMPLES; i++) {
         float fi = float(i);
