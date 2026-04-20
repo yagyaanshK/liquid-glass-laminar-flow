@@ -58,6 +58,7 @@ export default function WebGLPage() {
       {/* No DOM background needed — BackgroundCanvas renders it */}
 
       <div className="demo-area" style={{ 
+        paddingTop: '8rem',
         paddingBottom: '10rem',
         display: 'flex',
         flexDirection: 'column',
