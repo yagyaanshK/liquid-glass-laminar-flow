@@ -162,6 +162,12 @@ const FRAGMENT_SHADER = `
 
     // Sample with optional frost (golden angle spiral disk blur)
     vec4 refrCol;
+    // Pre-compute chromatic aberration direction
+    float caOff = (u_chromAberration > 0.0) ? u_chromAberration * edge * 0.01 : 0.0;
+    vec2 caDir = (u_chromAberration > 0.0) ? normalize(p + 0.0001) : vec2(0.0);
+    vec2 caOffR = caDir * caOff;
+    vec2 caOffB = -caDir * caOff;
+
     if (u_frost > 0.0) {
       float radius = u_frost * 6.0;
       vec4 sum = vec4(0.0);
@@ -172,7 +178,11 @@ const FRAGMENT_SHADER = `
         float angle = fi * GOLDEN_ANGLE;
         float dist = sqrt((fi + 0.5) / float(SAMPLES)) * radius;
         vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
-        sum += texture2D(u_texture, refracted + off);
+        // Integrate CA: sample R, G, B from their respective offset positions
+        sum.r += texture2D(u_texture, refracted + caOffR + off).r;
+        sum.g += texture2D(u_texture, refracted + off).g;
+        sum.b += texture2D(u_texture, refracted + caOffB + off).b;
+        sum.a += texture2D(u_texture, refracted + off).a;
       }
       refrCol = sum / float(SAMPLES);
     } else {
@@ -182,14 +192,12 @@ const FRAGMENT_SHADER = `
       refrCol += texture2D(u_texture, refracted + vec2(0.0,  texel.y));
       refrCol += texture2D(u_texture, refracted + vec2(0.0, -texel.y));
       refrCol /= 5.0;
-    }
 
-    // Chromatic aberration
-    if (u_chromAberration > 0.0) {
-      float caOff = u_chromAberration * edge * 0.01;
-      vec2 caDir = normalize(p + 0.0001);
-      refrCol.r = texture2D(u_texture, refracted + caDir * caOff).r;
-      refrCol.b = texture2D(u_texture, refracted - caDir * caOff).b;
+      // Chromatic aberration (only when NOT frosted — already integrated above)
+      if (u_chromAberration > 0.0) {
+        refrCol.r = texture2D(u_texture, refracted + caOffR).r;
+        refrCol.b = texture2D(u_texture, refracted + caOffB).b;
+      }
     }
 
     vec4 final = refrCol;
