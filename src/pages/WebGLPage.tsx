@@ -77,7 +77,7 @@ export default function WebGLPage() {
           {/* Main glass panel (Rect) */}
           <div style={{ textAlign: 'center' }}>
             <div ref={panelRef} className="demo-panel" style={{ borderRadius: config.cornerRadius }}>
-              <div className="demo-panel-content" style={{ padding: '2.5rem' }}>
+              <div className="demo-panel-content" style={{ background: 'rgba(0,0,0,0.65)', borderRadius: 24, padding: '2.5rem', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <h2 style={{ color: '#fff' }}>Rectangle SDF</h2>
                 <p style={{ color: 'rgba(255,255,255,0.7)', marginTop: '0.75rem' }}>Standard Rounded Rectangle SDF.</p>
               </div>

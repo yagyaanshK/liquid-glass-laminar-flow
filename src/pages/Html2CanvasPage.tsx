@@ -47,14 +47,18 @@ export default function Html2CanvasPage() {
           <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>html2canvas captures the page → WebGL shader refracts the texture</p>
         </div>
 
-        <div ref={panelRef} className="demo-panel" style={{ borderRadius: config.cornerRadius }}>
-          <div className="demo-panel-content" data-liquid-glass-ignore style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: 24, padding: '2.5rem', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="demo-panel" style={{ position: 'relative', borderRadius: config.cornerRadius }}>
+          {/* The real DOM container box that gets captured and baked into the texture */}
+          <div className="demo-panel-content" style={{ background: 'rgba(0,0,0,0.65)', borderRadius: 24, padding: '2.5rem', border: '1px solid rgba(255,255,255,0.08)' }}>
             <h2 style={{ color: '#fff' }}>Snapshot Glass</h2>
             <p style={{ color: 'rgba(255,255,255,0.7)', marginTop: '0.75rem' }}>
               One-time DOM capture,<br />
               then GLSL refraction shader.
             </p>
           </div>
+          
+          {/* The WebGL bounds element. It overlays the content and is hidden during capture. */}
+          <div ref={panelRef} style={{ position: 'absolute', inset: 0, borderRadius: config.cornerRadius }} />
         </div>
 
         <div className="demo-shapes-row" style={{ marginTop: '2rem' }}>
