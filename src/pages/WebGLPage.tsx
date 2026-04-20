@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { PageShell, DemoBackground } from '../components/PageShell';
 import { GlassControls } from '../components/GlassControls';
+import { ControlsDrawer } from '../components/ControlsDrawer';
 import { LiquidGlassEngine, DEFAULT_CONFIG, type GlassConfig } from '../engine/LiquidGlassEngine';
 import { BackgroundCanvas } from '../engine/BackgroundCanvas';
 
@@ -58,7 +59,6 @@ export default function WebGLPage() {
 
       <div className="demo-area" style={{ 
         paddingBottom: '10rem',
-        paddingRight: '340px', /* Reserve space for the fixed controls sidebar */
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -108,7 +108,9 @@ export default function WebGLPage() {
         </div>
       </div>
 
-      <GlassControls config={config} onChange={setConfig} />
+      <ControlsDrawer>
+        <GlassControls config={config} onChange={setConfig} />
+      </ControlsDrawer>
     </PageShell>
   );
 }

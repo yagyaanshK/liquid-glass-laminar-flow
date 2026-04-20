@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { PageShell, DemoBackground } from '../components/PageShell';
 import { GlassControls } from '../components/GlassControls';
+import { ControlsDrawer } from '../components/ControlsDrawer';
 import { LiquidGlassEngine, DEFAULT_CONFIG, type GlassConfig } from '../engine/LiquidGlassEngine';
 
 export default function Html2CanvasPage() {
@@ -81,7 +82,9 @@ export default function Html2CanvasPage() {
         </div>
       </div>
 
-      <GlassControls config={config} onChange={setConfig} />
+      <ControlsDrawer>
+        <GlassControls config={config} onChange={setConfig} />
+      </ControlsDrawer>
     </PageShell>
   );
 }
