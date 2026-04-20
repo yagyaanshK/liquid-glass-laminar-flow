@@ -60,7 +60,6 @@ export default function WebGLPage() {
       <div className="demo-area" style={{
         paddingTop: '8rem',
         paddingBottom: '10rem',
-        zIndex: 10000,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
