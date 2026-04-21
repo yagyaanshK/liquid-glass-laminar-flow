@@ -147,7 +147,7 @@ const FRAGMENT_SHADER = `
 
     // Refraction offset
     vec2 p = v_uv - 0.5;
-    p.x *= u_resolution.x / u_resolution.y;
+    p.x *= u_resolution.x / max(u_resolution.y, 0.001);
 
     float edge = edgeFactor(v_uv);
     float offsetAmt = edge * u_refraction + pow(edge, 10.0) * u_bevelDepth;
@@ -296,7 +296,6 @@ export interface GlassConfig {
   edgeHighlight: number;
   brightness: number;
   saturation: number;
-  shadowOpacity: number;
   specular: boolean;
 }
 
@@ -312,7 +311,6 @@ export const DEFAULT_CONFIG: GlassConfig = {
   edgeHighlight: 0.06,
   brightness: 0.0,
   saturation: 0.0,
-  shadowOpacity: 0.3,
   specular: true,
 };
 
@@ -348,7 +346,8 @@ function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string):
   const vs = compileShader(gl, gl.VERTEX_SHADER, vsSrc);
   const fs = compileShader(gl, gl.FRAGMENT_SHADER, fsSrc);
   if (!vs || !fs) return null;
-  const prog = gl.createProgram()!;
+  const prog = gl.createProgram();
+  if (!prog) return null;
   gl.attachShader(prog, vs);
   gl.attachShader(prog, fs);
   gl.linkProgram(prog);

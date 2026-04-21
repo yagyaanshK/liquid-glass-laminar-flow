@@ -44,7 +44,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: url('/bg.jpg') center/cover no-repeat;
+  background: var(--bg-url) center/cover no-repeat;
 }
 
 a {
@@ -67,46 +67,6 @@ a {
   overflow: hidden;
 }
 
-/* Background orbs */
-.home-bg {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.home-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-}
-
-.home-orb-1 {
-  width: 500px; height: 500px;
-  top: -10%; left: -5%;
-  background: rgba(255, 107, 74, 0.12);
-  animation: orb-drift 25s ease-in-out infinite;
-}
-
-.home-orb-2 {
-  width: 400px; height: 400px;
-  bottom: -5%; right: -5%;
-  background: rgba(62, 207, 142, 0.10);
-  animation: orb-drift 30s ease-in-out infinite reverse;
-}
-
-.home-orb-3 {
-  width: 350px; height: 350px;
-  top: 40%; right: 20%;
-  background: rgba(232, 168, 56, 0.08);
-  animation: orb-drift 20s ease-in-out infinite;
-}
-
-@keyframes orb-drift {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(40px, -30px); }
-}
-
 /* Header */
 .home-header {
   text-align: center;
@@ -114,8 +74,6 @@ a {
   position: relative;
   z-index: 1;
   background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   padding: 2.5rem 3rem;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -153,8 +111,6 @@ a {
 .home-card {
   position: relative;
   background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   padding: 2rem 1.75rem 2.5rem;
@@ -246,8 +202,8 @@ a {
   position: relative;
   z-index: 1;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   padding: 1.25rem 2rem;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -286,8 +242,6 @@ a {
   gap: 1rem;
   padding: 0.75rem 1.5rem;
   background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -337,69 +291,7 @@ a {
   z-index: -2;
   overflow: hidden;
   pointer-events: none;
-  background: url('/bg.jpg') center/cover no-repeat;
-}
-
-.demo-bg-gradient {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(255, 107, 74, 0.14) 0%, transparent 60%),
-    radial-gradient(ellipse 70% 50% at 75% 60%, rgba(232, 85, 109, 0.11) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 40% at 50% 80%, rgba(255, 154, 60, 0.09) 0%, transparent 50%);
-}
-
-.demo-bg-grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(42, 36, 32, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(42, 36, 32, 0.04) 1px, transparent 1px);
-  background-size: 60px 60px;
-}
-
-.demo-bg-stripe {
-  position: absolute;
-  top: 0; bottom: 0;
-}
-
-.demo-bg-stripe:nth-child(3) { left: 8%;  width: 4%;  background: linear-gradient(180deg, rgba(255,107,74,0.28), rgba(255,107,74,0.04)); }
-.demo-bg-stripe:nth-child(4) { left: 24%; width: 3%;  background: linear-gradient(180deg, rgba(255,154,60,0.22), rgba(255,154,60,0.04)); }
-.demo-bg-stripe:nth-child(5) { left: 48%; width: 5%;  background: linear-gradient(180deg, rgba(232,85,109,0.20), rgba(232,85,109,0.04)); }
-.demo-bg-stripe:nth-child(6) { left: 70%; width: 3%;  background: linear-gradient(180deg, rgba(62,207,142,0.18), rgba(62,207,142,0.04)); }
-.demo-bg-stripe:nth-child(7) { left: 88%; width: 4%;  background: linear-gradient(180deg, rgba(232,168,56,0.20), rgba(232,168,56,0.04)); }
-
-.demo-bg-circle {
-  position: absolute;
-  border-radius: 50%;
-}
-
-.demo-bg-circle:nth-child(8)  { width: 320px; height: 320px; top: 12%; left: 10%; background: radial-gradient(circle, rgba(255,107,74,0.20), transparent 70%); animation: orb-drift 20s ease-in-out infinite; }
-.demo-bg-circle:nth-child(9)  { width: 380px; height: 380px; top: 40%; right: 8%; background: radial-gradient(circle, rgba(232,85,109,0.16), transparent 70%); animation: orb-drift 25s ease-in-out infinite reverse; }
-.demo-bg-circle:nth-child(10) { width: 240px; height: 240px; bottom: 18%; left: 38%; background: radial-gradient(circle, rgba(255,154,60,0.22), transparent 70%); animation: orb-drift 18s ease-in-out infinite; }
-
-.demo-bg-text {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  user-select: none;
-}
-
-.demo-bg-text h1 {
-  font-size: 7rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: rgba(255, 107, 74, 0.12);
-  line-height: 1;
-}
-
-.demo-bg-text p {
-  font-size: 1.3rem;
-  font-weight: 300;
-  color: rgba(42, 36, 32, 0.06);
-  letter-spacing: 0.12em;
-  margin-top: 0.75rem;
+  background: var(--bg-url) center/cover no-repeat;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -475,8 +367,8 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 1.25rem;
-  backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   z-index: 50;
 }
@@ -608,8 +500,8 @@ a {
 .css-glass {
   position: relative;
   background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(12px) saturate(1.2) brightness(1.05);
   -webkit-backdrop-filter: blur(12px) saturate(1.2) brightness(1.05);
+  backdrop-filter: blur(12px) saturate(1.2) brightness(1.05);
   border: 1px solid rgba(255, 255, 255, 0.35);
   box-shadow:
     /* outer shadow */
@@ -652,8 +544,8 @@ a {
 /* SVG displacement version */
 .css-glass-refract {
   position: relative;
-  backdrop-filter: url(#glass-displacement) blur(1px) saturate(1.2) brightness(1.05);
   -webkit-backdrop-filter: url(#glass-displacement) blur(1px) saturate(1.2) brightness(1.05);
+  backdrop-filter: url(#glass-displacement) blur(1px) saturate(1.2) brightness(1.05);
   border: 1px solid rgba(255, 255, 255, 0.35);
   box-shadow:
     0 8px 32px rgba(42, 36, 32, 0.10),
@@ -700,7 +592,7 @@ a {
   .home-title {
     font-size: 3rem;
   }
-  .demo-controls {
+  .glass-controls {
     position: static;
     width: 100%;
     max-width: 420px;
@@ -720,8 +612,8 @@ a {
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -765,8 +657,6 @@ a {
   width: 340px;
   max-width: 90vw;
   background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border-left: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
   transform: translateX(100%);
@@ -793,4 +683,4 @@ a {
   padding: 0;
 }
 
-@media (orientation: landscape) { .photo-bg, .demo-bg { background-image: url('/bg-landscape.jpg') !important; } }
+@media (orientation: landscape) { .photo-bg, .demo-bg { background-image: var(--bg-url-landscape) !important; } }

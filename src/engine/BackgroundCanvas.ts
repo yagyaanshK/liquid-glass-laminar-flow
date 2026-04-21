@@ -8,7 +8,6 @@ export class BackgroundCanvas {
   canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private animFrameId = 0;
-  private time = 0;
   private _destroyed = false;
   private bgImage: HTMLImageElement | null = null;
 
@@ -34,6 +33,7 @@ export class BackgroundCanvas {
     const bgName = isLandscape ? 'bg-landscape.jpg' : 'bg.jpg';
     img.src = `${import.meta.env.BASE_URL}${bgName}`;
     img.onload = () => { this.bgImage = img; };
+    img.onerror = () => { console.warn(`BackgroundCanvas: failed to load ${bgName}`); };
   }
 
   start() {
@@ -55,7 +55,6 @@ export class BackgroundCanvas {
 
   private _loop = () => {
     if (this._destroyed) return;
-    this.time += 1 / 60;
     this._draw();
     this.animFrameId = requestAnimationFrame(this._loop);
   };
@@ -64,7 +63,6 @@ export class BackgroundCanvas {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
-    const dpr = w / innerWidth;
 
     // ── Background photo ──
     if (this.bgImage) {

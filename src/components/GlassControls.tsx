@@ -20,7 +20,6 @@ const SLIDERS: { key: keyof GlassConfig; label: string; min: number; max: number
   { key: 'edgeHighlight',   label: 'Edge Highlight',      min: 0, max: 0.5,  step: 0.005 },
   { key: 'brightness',      label: 'Brightness',          min: -0.5, max: 0.5, step: 0.01 },
   { key: 'saturation',      label: 'Saturation',          min: -1, max: 1,   step: 0.01  },
-  { key: 'shadowOpacity',   label: 'Shadow Opacity',      min: 0, max: 1,    step: 0.01  },
 ];
 
 const PRESETS: { name: string; values: Partial<GlassConfig> }[] = [
@@ -52,7 +51,7 @@ export function GlassControls({ config, onChange, readonly = false, inline = fal
   };
 
   const activeSliders = visibleKeys ? SLIDERS.filter(s => visibleKeys.includes(s.key)) : SLIDERS;
-  const showSpecular = !visibleKeys || visibleKeys.includes('specular' as keyof GlassConfig);
+  const showSpecular = !visibleKeys || visibleKeys.includes('specular');
 
   return (
     <div className={`glass-controls ${readonly ? 'locked' : ''} ${inline ? 'inline' : ''}`}>

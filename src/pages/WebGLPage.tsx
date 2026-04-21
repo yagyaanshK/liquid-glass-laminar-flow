@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { PageShell, DemoBackground } from '../components/PageShell';
+import { PageShell } from '../components/PageShell';
 import { GlassControls } from '../components/GlassControls';
 import { ControlsDrawer } from '../components/ControlsDrawer';
 import { LiquidGlassEngine, DEFAULT_CONFIG, type GlassConfig } from '../engine/LiquidGlassEngine';

@@ -66,10 +66,10 @@ export default function Home() {
       <footer className="home-footer">
         <p>
           Reference implementations:{' '}
-          <a href="https://github.com/naughtyduk/liquidGL" target="_blank" rel="noopener">liquidGL</a>{' · '}
-          <a href="https://github.com/ybouane/liquidglass" target="_blank" rel="noopener">@ybouane/liquidglass</a>{' · '}
-          <a href="https://github.com/iyinchao/liquid-glass-studio" target="_blank" rel="noopener">liquid-glass-studio</a>{' · '}
-          <a href="https://kube.io/blog/liquid-glass-css-svg/" target="_blank" rel="noopener">kube.io</a>
+          <a href="https://github.com/naughtyduk/liquidGL" target="_blank" rel="noopener noreferrer">liquidGL</a>{' · '}
+          <a href="https://github.com/ybouane/liquidglass" target="_blank" rel="noopener noreferrer">@ybouane/liquidglass</a>{' · '}
+          <a href="https://github.com/iyinchao/liquid-glass-studio" target="_blank" rel="noopener noreferrer">liquid-glass-studio</a>{' · '}
+          <a href="https://kube.io/blog/liquid-glass-css-svg/" target="_blank" rel="noopener noreferrer">kube.io</a>
         </p>
       </footer>
     </div>
