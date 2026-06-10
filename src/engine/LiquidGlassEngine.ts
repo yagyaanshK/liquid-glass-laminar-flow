@@ -371,6 +371,8 @@ export class LiquidGlassEngine {
   private liveSource: HTMLCanvasElement | null = null;
   private snapshotRoot: HTMLElement | null = null;
   private uniforms: Record<string, WebGLUniformLocation | null> = {};
+  private textureWidth = 0;
+  private textureHeight = 0;
 
   constructor(snapshotRootOrCanvas: HTMLElement | HTMLCanvasElement) {
     if (snapshotRootOrCanvas instanceof HTMLCanvasElement) {
@@ -479,7 +481,7 @@ export class LiquidGlassEngine {
       allowTaint: false,
       useCORS: true,
       backgroundColor: null,
-      scale: Math.min(2, window.devicePixelRatio || 1),
+      scale: Math.min(1.5, window.devicePixelRatio || 1),
       ignoreElements: (el: Element) =>
         el.hasAttribute('data-liquid-glass-overlay') ||
         el.hasAttribute('data-liquid-glass-lens') ||
@@ -510,16 +512,27 @@ export class LiquidGlassEngine {
   // ── Private ──
 
   private _resizeCanvas = () => {
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     this.overlayCanvas.width = innerWidth * dpr;
     this.overlayCanvas.height = innerHeight * dpr;
   };
 
   private _uploadTexture(src: HTMLCanvasElement | HTMLImageElement) {
     const gl = this.gl;
+    const width = src instanceof HTMLCanvasElement ? src.width : src.naturalWidth;
+    const height = src instanceof HTMLCanvasElement ? src.height : src.naturalHeight;
+
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+
+    if (width !== this.textureWidth || height !== this.textureHeight) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+      this.textureWidth = width;
+      this.textureHeight = height;
+      return;
+    }
+
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src);
   }
 
   private _loop = () => {
@@ -548,7 +561,7 @@ export class LiquidGlassEngine {
     const time = (Date.now() - this.startTime) / 1000;
     gl.uniform1f(this.uniforms.u_time, time);
 
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     const texW = this.liveSource?.width || this.overlayCanvas.width;
     const texH = this.liveSource?.height || this.overlayCanvas.height;
 

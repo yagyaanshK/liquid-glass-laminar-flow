@@ -364,6 +364,13 @@ import { LiquidGlass } from 'https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/d
 | Mobile GPU | Reduce `resolution`, limit `samples` (frost), disable `specular` on mobile |
 | Glass-on-glass (layered) | Each layer requires a full compositing pass. Limit to 2-3 layers |
 
+### Current Repo Optimizations
+
+- The WebGL route caps canvas DPR at `1.5` to reduce texture upload and fragment work on high-density displays.
+- `BackgroundCanvas` pre-renders the static dark ambient layer on resize and redraws only animated flow elements per frame.
+- `LiquidGlassEngine` uses `texImage2D` only when texture dimensions change, then uses `texSubImage2D` for same-size live updates.
+- WebGL shape labels are nested inside the same DOM elements registered as lenses so scrolling keeps labels and refracted shapes aligned.
+
 ### From kube.io (CSS/SVG approach):
 > "WebGL comes with drawbacks: shaders can't directly manipulate the DOM render. To make refraction work, you'd have to re-render everything into a canvas—which isn't really 'the web' anymore."
 

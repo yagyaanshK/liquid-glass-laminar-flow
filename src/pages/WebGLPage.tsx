@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PageShell } from '../components/PageShell';
 import { GlassControls } from '../components/GlassControls';
 import { ControlsDrawer } from '../components/ControlsDrawer';
@@ -15,7 +15,7 @@ export default function WebGLPage() {
   const engineRef = useRef<LiquidGlassEngine | null>(null);
   const bgRef = useRef<BackgroundCanvas | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // 1. Create the live background canvas
     const bg = new BackgroundCanvas(document.body);
     bgRef.current = bg;
@@ -25,18 +25,23 @@ export default function WebGLPage() {
     const engine = new LiquidGlassEngine(bg.canvas);
     engineRef.current = engine;
 
-    // 3. Register lens elements after a short delay to let React paint
-    const timer = setTimeout(() => {
+    // 3. Register lens elements after layout has settled.
+    let frameA = 0;
+    let frameB = 0;
+    frameA = requestAnimationFrame(() => {
+      frameB = requestAnimationFrame(() => {
       if (panelRef.current) engine.addLens(panelRef.current, { ...DEFAULT_CONFIG, shape: 'rect' });
       if (circleRef.current) engine.addLens(circleRef.current, { ...DEFAULT_CONFIG, shape: 'circle' });
       if (ellipseRef.current) engine.addLens(ellipseRef.current, { ...DEFAULT_CONFIG, shape: 'ellipse' });
       if (triangleRef.current) engine.addLens(triangleRef.current, { ...DEFAULT_CONFIG, shape: 'triangle' });
       if (hexagonRef.current) engine.addLens(hexagonRef.current, { ...DEFAULT_CONFIG, shape: 'hexagon' });
       engine.startLive(bg.canvas);
-    }, 300);
+      });
+    });
 
     return () => {
-      clearTimeout(timer);
+      cancelAnimationFrame(frameA);
+      cancelAnimationFrame(frameB);
       engine.destroy();
       bg.destroy();
     };
@@ -66,13 +71,7 @@ export default function WebGLPage() {
         justifyContent: 'flex-start'
       }}>
 
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12rem',
-          width: '100%',
-          alignItems: 'center'
-        }}>
+        <div className="webgl-showcase">
           {/* Main glass panel (Rect) */}
           <div style={{ textAlign: 'center' }}>
             <div ref={panelRef} className="demo-panel" style={{ borderRadius: config.cornerRadius }}>
@@ -84,27 +83,31 @@ export default function WebGLPage() {
           </div>
 
           {/* Circle */}
-          <div style={{ textAlign: 'center' }}>
-            <div ref={circleRef} style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1', borderRadius: '50%' }} />
-            <h2 style={{ color: '#fff', marginTop: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px', display: 'inline-block' }}>Circle SDF</h2>
+          <div className="webgl-shape-stage">
+            <div ref={circleRef} className="webgl-lens" style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1', borderRadius: '50%' }}>
+              <div className="webgl-lens-label">Circle SDF</div>
+            </div>
           </div>
 
           {/* Ellipse */}
-          <div style={{ textAlign: 'center' }}>
-            <div ref={ellipseRef} style={{ width: 'min(650px, 90vw)', aspectRatio: '650/380', borderRadius: '50%' }} />
-            <h2 style={{ color: '#fff', marginTop: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px', display: 'inline-block' }}>Ellipse SDF</h2>
+          <div className="webgl-shape-stage">
+            <div ref={ellipseRef} className="webgl-lens" style={{ width: 'min(650px, 90vw)', aspectRatio: '650/380', borderRadius: '50%' }}>
+              <div className="webgl-lens-label">Ellipse SDF</div>
+            </div>
           </div>
 
           {/* Equilateral Triangle */}
-          <div style={{ textAlign: 'center' }}>
-            <div ref={triangleRef} style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1' }} />
-            <h2 style={{ color: '#fff', marginTop: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px', display: 'inline-block' }}>Triangle SDF</h2>
+          <div className="webgl-shape-stage">
+            <div ref={triangleRef} className="webgl-lens" style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1' }}>
+              <div className="webgl-lens-label">Triangle SDF</div>
+            </div>
           </div>
 
           {/* Hexagon */}
-          <div style={{ textAlign: 'center' }}>
-            <div ref={hexagonRef} style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1' }} />
-            <h2 style={{ color: '#fff', marginTop: '1.5rem', fontSize: '1.3rem', fontWeight: 500, background: 'rgba(0,0,0,0.65)', padding: '1rem', borderRadius: '12px', display: 'inline-block' }}>Hexagon SDF</h2>
+          <div className="webgl-shape-stage">
+            <div ref={hexagonRef} className="webgl-lens" style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1' }}>
+              <div className="webgl-lens-label">Hexagon SDF</div>
+            </div>
           </div>
         </div>
       </div>

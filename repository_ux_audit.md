@@ -2,6 +2,18 @@
 
 Audit date: 2026-06-11
 
+## Implementation Progress
+
+The following audit findings have since been addressed:
+
+- The busy photographic background was replaced with a minimal dark animated flow-field background.
+- DOM-backed pages now use `AnimatedBackground`; the WebGL route uses a matching procedural `BackgroundCanvas`.
+- The large `bg.jpg` and `bg-landscape.jpg` assets were removed from the app.
+- WebGL shape labels are now anchored inside the same DOM elements registered as glass lenses, keeping labels and glass visuals aligned while scrolling.
+- The live WebGL path now caps render DPR at `1.5`, pre-renders the static canvas background layer, and uses `texSubImage2D` for same-size live texture updates.
+
+Historical findings below may refer to the pre-refactor photo background and the earlier WebGL label layout.
+
 ## Scope and Method
 
 This audit reviewed the whole repository: product experience, visual design, accessibility, performance, rendering architecture, code maintainability, documentation, build/deployment, and test coverage.
@@ -244,55 +256,54 @@ Recommended fix:
 
 ## Performance Issues
 
-### 1. Background images dominate first-load weight
+### 1. Background images dominate first-load weight - addressed
 
-Production build output includes:
+Original finding: production build output included:
 
 - `dist/bg.jpg`: 2,593,358 bytes.
 - `dist/bg-landscape.jpg`: 2,330,130 bytes.
 - Main JS: 267,798 bytes raw.
 - Lazy html2canvas chunk: 199,568 bytes raw.
 
-The background images are larger than the app code and are required for the first visual impression.
+Current state: `bg.jpg` and `bg-landscape.jpg` were removed. The app now uses procedural SVG/canvas backgrounds, so this first-load weight issue no longer applies.
 
-Recommended improvements:
+Future optional improvements:
 
-- Generate AVIF/WebP variants.
-- Use responsive image sizes.
-- Preload only the orientation-appropriate background.
-- Consider a smaller low-quality placeholder while the full image loads.
-- Keep the high-resolution image as an optional "detail stress test" asset.
+- If photo stress-test backgrounds are reintroduced, generate AVIF/WebP variants and load them only on demand.
 
-### 2. WebGL mode uploads a full texture every frame
+### 2. WebGL mode uploads a full texture every frame - addressed
 
-In live mode, the engine re-uploads the source canvas texture on every animation frame using `texImage2D`.
+Original finding: live mode re-uploaded the source canvas texture on every animation frame using `texImage2D`.
+
+Current state: the engine allocates texture storage with `texImage2D` only when dimensions change, then uses `texSubImage2D` for same-size live updates.
 
 Relevant code:
 
 - `src/engine/LiquidGlassEngine.ts:535` checks for live source each frame.
 - `src/engine/LiquidGlassEngine.ts:536` uploads the texture.
-- `src/engine/LiquidGlassEngine.ts:522` calls `gl.texImage2D`.
+- `src/engine/LiquidGlassEngine.ts` now uses `texImage2D` for dimension changes and `texSubImage2D` for same-size live updates.
 
-This is acceptable for a prototype, but it is a known GPU/CPU bandwidth cost and can hurt battery life.
+The per-frame live texture update is still a real cost, but repeated texture allocation has been removed.
 
-Recommended improvements:
+Further recommended improvements:
 
-- Only upload when the source canvas changes.
-- Use `texSubImage2D` after the first allocation where possible.
+- Upload only when the source canvas changes, or make the background renderer and glass engine share one coordinated frame loop.
 - Pause rendering when the page is hidden using `document.visibilityState`.
 - Pause or throttle offscreen demos with `IntersectionObserver`.
 - Provide a low-power mode with fewer samples and no animated specular highlights.
 
-### 3. The background canvas redraws a static image every frame
+### 3. The background canvas redraws static work every frame - partially addressed
 
-`BackgroundCanvas` currently draws a static image every requestAnimationFrame. There is no animation in the background, so continuous redraw is unnecessary.
+Original finding: `BackgroundCanvas` redrew static background work every requestAnimationFrame.
+
+Current state: the app now uses an animated procedural background. The static dark ambient layer is pre-rendered on resize, while animated flow-field elements continue to redraw per frame.
 
 Relevant code:
 
 - `src/engine/BackgroundCanvas.ts:59` schedules the draw loop.
 - `src/engine/BackgroundCanvas.ts:80` draws the image.
 
-Recommended improvements:
+Further recommended improvements:
 
 - Draw once on image load and resize.
 - If animation is added later, make animation opt-in.
@@ -362,9 +373,11 @@ Recommended improvements:
 - Restore visibility in `finally`.
 - Return a status or throw a typed error that the page can render.
 
-### 3. Orientation-specific background is selected only once in WebGL live mode
+### 3. Orientation-specific image background is selected only once in WebGL live mode - addressed
 
-`BackgroundCanvas` chooses `bg.jpg` or `bg-landscape.jpg` in the constructor. On orientation change, it resizes the canvas but does not reload the orientation-appropriate image.
+Original finding: `BackgroundCanvas` chose `bg.jpg` or `bg-landscape.jpg` in the constructor and did not reload on orientation change.
+
+Current state: the image assets were removed and `BackgroundCanvas` now draws a responsive procedural background, so this issue no longer applies.
 
 Relevant code:
 
@@ -402,11 +415,10 @@ Recommended improvements:
 
 ### 2. Lens registration relies on fixed timers
 
-WebGL and html2canvas pages use `setTimeout` to wait for layout before registering lenses.
+The html2canvas page still uses `setTimeout` to wait for layout before registering lenses. The WebGL page now uses a double `requestAnimationFrame` after layout.
 
 Relevant code:
 
-- `src/pages/WebGLPage.tsx:29`
 - `src/pages/Html2CanvasPage.tsx:19`
 
 Recommended improvements:

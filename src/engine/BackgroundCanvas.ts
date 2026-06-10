@@ -22,11 +22,14 @@ function rgba(color: readonly number[], alpha: number) {
 export class BackgroundCanvas {
   canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private staticCanvas: HTMLCanvasElement;
+  private staticCtx: CanvasRenderingContext2D;
   private animFrameId = 0;
   private _destroyed = false;
 
   constructor(container: HTMLElement) {
     this.canvas = document.createElement('canvas');
+    this.staticCanvas = document.createElement('canvas');
     this.canvas.style.cssText = `
       position: fixed; inset: 0;
       width: 100%; height: 100%;
@@ -37,6 +40,7 @@ export class BackgroundCanvas {
     container.prepend(this.canvas);
 
     this.ctx = this.canvas.getContext('2d', { alpha: false })!;
+    this.staticCtx = this.staticCanvas.getContext('2d', { alpha: false })!;
     this._resize();
     window.addEventListener('resize', this._resize, { passive: true });
   }
@@ -53,9 +57,12 @@ export class BackgroundCanvas {
   }
 
   private _resize = () => {
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     this.canvas.width = innerWidth * dpr;
     this.canvas.height = innerHeight * dpr;
+    this.staticCanvas.width = this.canvas.width;
+    this.staticCanvas.height = this.canvas.height;
+    this._drawStaticLayer();
   };
 
   private _loop = () => {
@@ -70,15 +77,22 @@ export class BackgroundCanvas {
     const h = this.canvas.height;
     const now = performance.now() / 1000;
 
-    ctx.fillStyle = rgba(COLORS.base, 1);
-    ctx.fillRect(0, 0, w, h);
-
-    this._drawAmbient(ctx, w, h);
+    ctx.drawImage(this.staticCanvas, 0, 0);
     this._drawFlowField(ctx, w, h, now);
     this._drawGrid(ctx, w, h, now);
     this._drawLines(ctx, w, h, now);
     this._drawRings(ctx, w, h, now);
     this._drawDots(ctx, w, h, now);
+  }
+
+  private _drawStaticLayer() {
+    const ctx = this.staticCtx;
+    const w = this.staticCanvas.width;
+    const h = this.staticCanvas.height;
+
+    ctx.fillStyle = rgba(COLORS.base, 1);
+    ctx.fillRect(0, 0, w, h);
+    this._drawAmbient(ctx, w, h);
   }
 
   private _drawAmbient(ctx: CanvasRenderingContext2D, w: number, h: number) {
@@ -132,7 +146,7 @@ export class BackgroundCanvas {
   }
 
   private _drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number, now: number) {
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     const spacing = 56 * dpr;
     const offset = (now * 7) % spacing;
     ctx.fillStyle = rgba(COLORS.grid, 0.13);
@@ -147,7 +161,7 @@ export class BackgroundCanvas {
   }
 
   private _drawLines(ctx: CanvasRenderingContext2D, w: number, h: number, now: number) {
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     const lines = [
       { color: COLORS.coral, y: 0.26, amp: 0.11, phase: 0, alpha: 0.62, dash: [12, 28] },
       { color: COLORS.mint, y: 0.58, amp: 0.12, phase: 1.7, alpha: 0.58, dash: [12, 28] },

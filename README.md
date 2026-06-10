@@ -50,6 +50,7 @@ If you are working with an AI coding assistant and want to implement these featu
 - **Mathematical SDF Shapes**: Includes precise 2D geometry math for rectangles, circles, ellipses, triangles, and hexagons.
 - **Tunable Parameters**: A unified control system for refraction, bevel depth, frost blur, chromatic aberration, Fresnel, and more.
 - **Animated Abstract Backgrounds**: Minimal moving dots, lines, and rings that make refraction visible without overpowering the UI.
+- **Smooth WebGL Demo Layout**: Labels are anchored to their glass lenses, and the live texture path avoids repeated GPU texture allocation for same-size frames.
 
 ## Getting Started
 
