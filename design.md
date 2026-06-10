@@ -42,7 +42,7 @@ Apple's "Liquid Glass" (introduced in iOS/macOS 26) is a UI design language wher
 >
 > **Controls sidebar** (`.glass-controls`): Uses **CSS class** with `position: fixed; z-index: 50` and its own frosted properties. Must remain `position: fixed` — never wrap it in a non-fixed parent.
 >
-> **WebGL page background**: Uses `BackgroundCanvas` with `img.src = import.meta.env.BASE_URL + 'bg.jpg'`. Never hardcode `/bg.jpg`.
+> **WebGL page background**: Uses `BackgroundCanvas` to procedurally draw the animated dots, lines, and rings into a live canvas texture.
 >
 > #### What Breaks It
 > - ❌ Replacing per-element styles with a shared utility class (e.g. `.glass-container-sleek`) — different elements need different opacities, borders, and radii

@@ -8,7 +8,7 @@ Unlike the static DOM snapshot method, this implementation renders a highly perf
 ## Key Components
 
 ### 1. The Background Engine (`BackgroundCanvas.ts`)
-Creates a full-screen 2D canvas that continually draws the `bg.jpg` photo. In a real-world scenario, this could be a Three.js scene, a WebGL video player, or an animated gradient generator. 
+Creates a full-screen 2D canvas that continually draws a subtle dark flow field with animated dots, lines, and rings. In a real-world scenario, this could be a Three.js scene, a WebGL video player, or any other animated canvas source.
 
 ### 2. The Liquid Glass Engine (`LiquidGlassEngine.ts`)
 Manages the WebGL context and rendering cycle. It accepts the source canvas from the Background Engine as a WebGL texture (`gl.texImage2D`).

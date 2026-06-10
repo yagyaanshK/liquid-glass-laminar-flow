@@ -39,12 +39,194 @@ body {
   min-height: 100vh;
 }
 
-/* Full-page photo background on all pages */
-.photo-bg {
+/* Full-page animated background on non-WebGL pages */
+.animated-bg {
   position: fixed;
   inset: 0;
-  z-index: -1;
-  background: var(--bg-url) center/cover no-repeat;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(62, 207, 142, 0.08), transparent 28%),
+    radial-gradient(circle at 78% 24%, rgba(92, 134, 255, 0.08), transparent 30%),
+    radial-gradient(circle at 54% 86%, rgba(255, 107, 74, 0.06), transparent 32%),
+    #0d1116;
+}
+
+.animated-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 38%),
+    linear-gradient(300deg, rgba(0, 0, 0, 0.26), rgba(0, 0, 0, 0) 54%);
+}
+
+.animated-bg-svg {
+  position: absolute;
+  inset: -8%;
+  width: 116%;
+  height: 116%;
+  opacity: 0.92;
+}
+
+.bg-grid-dot {
+  fill: rgba(237, 246, 242, 0.13);
+}
+
+.bg-grid {
+  opacity: 0.42;
+  animation: bg-grid-drift 18s linear infinite;
+}
+
+.bg-flow {
+  stroke: rgba(138, 174, 190, 0.13);
+  stroke-width: 1.4;
+  stroke-dasharray: 18 34;
+  opacity: 0.78;
+  animation: bg-flow-drift 32s ease-in-out infinite;
+}
+
+.bg-flow-b,
+.bg-flow-e {
+  stroke: rgba(82, 136, 150, 0.14);
+  animation-delay: -8s;
+  animation-direction: reverse;
+}
+
+.bg-flow-c,
+.bg-flow-f {
+  stroke: rgba(160, 120, 220, 0.10);
+  animation-delay: -16s;
+}
+
+.bg-line {
+  stroke-width: 2.5;
+  stroke-dasharray: 12 28;
+  opacity: 0.65;
+  animation: bg-line-flow 14s linear infinite;
+}
+
+.bg-line-a {
+  stroke: rgba(255, 107, 74, 0.68);
+}
+
+.bg-line-b {
+  stroke: rgba(62, 207, 142, 0.64);
+  animation-duration: 18s;
+  animation-direction: reverse;
+}
+
+.bg-line-c {
+  stroke: rgba(232, 168, 56, 0.56);
+  stroke-dasharray: 4 22;
+  animation-duration: 22s;
+}
+
+.bg-line-d {
+  stroke: rgba(92, 134, 255, 0.56);
+  stroke-dasharray: 8 24;
+  animation-duration: 20s;
+  animation-direction: reverse;
+}
+
+.bg-ring {
+  stroke-width: 2;
+  opacity: 0.58;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bg-ring-pulse 10s ease-in-out infinite;
+}
+
+.bg-ring-a {
+  stroke: rgba(255, 107, 74, 0.66);
+}
+
+.bg-ring-b {
+  stroke: rgba(62, 207, 142, 0.60);
+  animation-delay: -3s;
+}
+
+.bg-ring-c {
+  stroke: rgba(232, 168, 56, 0.62);
+  animation-delay: -6s;
+}
+
+.bg-dot {
+  opacity: 0.78;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bg-dot-float 9s ease-in-out infinite;
+}
+
+.bg-dot-0 {
+  fill: rgba(255, 107, 74, 0.78);
+}
+
+.bg-dot-1 {
+  fill: rgba(62, 207, 142, 0.72);
+  animation-delay: -2s;
+}
+
+.bg-dot-2 {
+  fill: rgba(232, 168, 56, 0.74);
+  animation-delay: -4s;
+}
+
+.bg-dot-3 {
+  fill: rgba(92, 134, 255, 0.64);
+  animation-delay: -6s;
+}
+
+@keyframes bg-grid-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(56px, 56px, 0);
+  }
+}
+
+@keyframes bg-flow-drift {
+  0%, 100% {
+    stroke-dashoffset: 0;
+    transform: translate3d(-18px, -6px, 0);
+  }
+  50% {
+    stroke-dashoffset: -180;
+    transform: translate3d(18px, 8px, 0);
+  }
+}
+
+@keyframes bg-line-flow {
+  from {
+    stroke-dashoffset: 0;
+    transform: translate3d(-24px, 0, 0);
+  }
+  to {
+    stroke-dashoffset: -240;
+    transform: translate3d(24px, 0, 0);
+  }
+}
+
+@keyframes bg-ring-pulse {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.78;
+  }
+}
+
+@keyframes bg-dot-float {
+  0%, 100% {
+    transform: translate3d(-10px, 8px, 0) scale(0.92);
+  }
+  50% {
+    transform: translate3d(12px, -10px, 0) scale(1.16);
+  }
 }
 
 a {
@@ -284,15 +466,6 @@ a {
 /* ══════════════════════════════════════════════════════════════════════════
    DEMO BACKGROUND (shared across approach pages)
    ══════════════════════════════════════════════════════════════════════════ */
-
-.demo-bg {
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  overflow: hidden;
-  pointer-events: none;
-  background: var(--bg-url) center/cover no-repeat;
-}
 
 /* ══════════════════════════════════════════════════════════════════════════
    DEMO SHOWCASE AREA
@@ -685,4 +858,18 @@ a {
   padding: 0;
 }
 
-@media (orientation: landscape) { .photo-bg, .demo-bg { background-image: var(--bg-url-landscape) !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .animated-bg,
+  .bg-grid,
+  .bg-line,
+  .bg-ring,
+  .bg-dot,
+  .home-card,
+  .card-arrow,
+  .controls-burger,
+  .controls-burger span,
+  .controls-drawer {
+    animation: none !important;
+    transition: none !important;
+  }
+}

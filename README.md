@@ -1,66 +1,69 @@
-# 💎 Liquid Glass Laminar Flow Showcase
+# Liquid Glass Laminar Flow Showcase
 
-A high-fidelity refraction engine showcase demonstrating three distinct architectural patterns for achieving "Liquid Glass" effects in the browser. This repository is designed to be **Agent-ready**—providing structured implementation detail files that you can feed directly into AI coding assistants (like Gemini, Claude, or GPT) to replicate these effects in your own projects.
+A high-fidelity refraction engine showcase demonstrating three distinct architectural patterns for achieving "Liquid Glass" effects in the browser. This repository is designed to be agent-ready, with structured implementation detail files that can be used as context for AI coding assistants.
 
+## Overview
 
-_This project features a background image captured by **Yagyaansh Khaneja**. Any reuse of this asset should provide direct credit to the photographer._
-
-![Repo Header](public/bg.jpg)
-
-**Connect with the Artist:**
-[Instagram](https://www.instagram.com/picturexyou_official/) | [Unsplash](https://unsplash.com/@yagyaansh) | [Pexels](https://www.pexels.com/@yagyaansh)
-
-## 🚀 Overview
-This project explores the "Liquid Glass" design language (popularized by modern mobile OS interfaces) where UI elements behave as thick, curved geometric lenses. 
+This project explores the "Liquid Glass" design language where UI elements behave as thick, curved geometric lenses.
 
 This repository implements:
-1. **WebGL / GLSL Shader**: Real-time pixel displacement over a live background using mathematical Signed Distance Functions (SDFs).
+
+1. **WebGL / GLSL Shader**: Real-time pixel displacement over a live animated canvas using mathematical Signed Distance Functions (SDFs).
 2. **CSS + SVG Filters**: Hardware-accelerated refraction using `feDisplacementMap` and `backdrop-filter`.
 3. **DOM Snapshotting**: Full-page refraction over complex HTML layouts using `html2canvas` and WebGL.
 
+The demo background is intentionally minimal: animated dots, lines, and rings move behind the glass so refraction is easy to see without the UI competing with a busy photo.
+
 ---
 
-## 🤖 Agent-Ready Documentation (LLM-Friendly)
-If you are working with an AI coding assistant and want to implement these features, use the following files as context. They contain precise mathematical algorithms, shader code, and configuration parameters optimized for technical extraction.
+## Agent-Ready Documentation
 
-### ⚠️ Critical Architecture Rule for Agents
+If you are working with an AI coding assistant and want to implement these features, use the following files as context. They contain mathematical algorithms, shader code, and configuration parameters optimized for technical extraction.
+
+### Critical Architecture Rule for Agents
+
 > **Do NOT refactor the frosted glass container styles into a shared CSS utility class.**
 >
 > This project uses a deliberately fragmented styling strategy for its frosted glass UI containers:
-> - **Landing page**: Frosted properties live in **CSS classes** (`.home-header`, `.home-card`, `.home-footer`) — each with different opacities
-> - **Demo pages**: Frosted properties are set via **inline React styles** on each container element
-> - **Controls sidebar**: `.glass-controls` must stay `position: fixed` with its own CSS-defined frosted properties
-> - **WebGL bg.jpg**: Must use `` `${import.meta.env.BASE_URL}bg.jpg` `` — never hardcode `/bg.jpg`
 >
-> **Why?** A previous attempt to "standardize" these into a single `.glass-container-sleek` utility class caused a cascading regression that took multiple failed fix attempts to resolve. Different elements require different background opacities, border radii, and padding. See `design.md` for the full explanation.
+> - **Landing page**: Frosted properties live in CSS classes (`.home-header`, `.home-card`, `.home-footer`), each with different opacities.
+> - **Demo pages**: Frosted properties are set via inline React styles on each container element.
+> - **Controls sidebar**: `.glass-controls` must stay `position: fixed` with its own CSS-defined frosted properties.
+> - **Background layers**: DOM pages use `AnimatedBackground`; the WebGL page uses `BackgroundCanvas` so the shader can refract a live animated canvas texture.
+>
+> **Why?** A previous attempt to standardize these into a single `.glass-container-sleek` utility class caused a cascading regression that took multiple failed fix attempts to resolve. Different elements require different background opacities, border radii, and padding. See `design.md` for the full explanation.
 
-### 📗 Core Reference
-- **[Design & Architecture (design.md)](./design.md)**: The comprehensive master reference for all parameters, library comparisons, and core concepts.
+### Core Reference
 
-### 📘 Implementation Deep-Dives
-- **[WebGL Live Shader (implementation_details_webgl.md)](./implementation_details_webgl.md)**: Best for high-performance apps, games, or full-viewport canvas backgrounds. Includes GLSL logic for Refraction, Chromatic Aberration, and Specular highlights.
-- **[CSS + SVG Filters (implementation_details_css_svg.md)](./implementation_details_css_svg.md)**: Best for lightweight, no-JS implementations. Explains the SVG filter chain and cross-browser fallbacks.
-- **[HTML2Canvas Snapshots (implementation_details_html2canvas.md)](./implementation_details_html2canvas.md)**: Best for traditional web apps needing glass panels over complex text and layout elements.
+- **[Design & Architecture](./design.md)**: The comprehensive master reference for all parameters, library comparisons, and core concepts.
+
+### Implementation Deep-Dives
+
+- **[WebGL Live Shader](./implementation_details_webgl.md)**: Best for high-performance apps, games, or full-viewport canvas backgrounds. Includes GLSL logic for refraction, chromatic aberration, and specular highlights.
+- **[CSS + SVG Filters](./implementation_details_css_svg.md)**: Best for lightweight, no-JS implementations. Explains the SVG filter chain and cross-browser fallbacks.
+- **[HTML2Canvas Snapshots](./implementation_details_html2canvas.md)**: Best for traditional web apps needing glass panels over complex text and layout elements.
 
 ---
 
-## 🛠 Features
-- **Mathematical SDF Shapes**: Includes precise 2D geometry math for Rectangles, Circles, Ellipses, Triangles, and Hexagons.
-- **Tunable Parameters**: A unified control system for Refraction, Bevel Depth, Frost (Blur), Chromatic Aberration, Fresnel, and more.
-- **Pure CSS Backgrounds**: Clean, high-fidelity photo backgrounds with removed decorative clutter for a professional showcase.
+## Features
 
-## 🏁 Getting Started
+- **Mathematical SDF Shapes**: Includes precise 2D geometry math for rectangles, circles, ellipses, triangles, and hexagons.
+- **Tunable Parameters**: A unified control system for refraction, bevel depth, frost blur, chromatic aberration, Fresnel, and more.
+- **Animated Abstract Backgrounds**: Minimal moving dots, lines, and rings that make refraction visible without overpowering the UI.
+
+## Getting Started
 
 ```bash
 # Clone the repository
 git clone https://github.com/yagyaanshK/liquid-glass-laminar-flow.git
 
-# Install dependencies  
+# Install dependencies
 npm install
 
 # Run the development server
 npm run dev
 ```
 
-## 📜 License
+## License
+
 MIT - Created for the community to explore high-fidelity UI engineering.

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { AnimatedBackground } from '../components/AnimatedBackground';
 
 const APPROACHES = [
   {
@@ -27,8 +28,7 @@ const APPROACHES = [
 export default function Home() {
   return (
     <div className="home">
-      {/* Photo background */}
-      <div className="photo-bg" />
+      <AnimatedBackground />
 
       {/* Content */}
       <header className="home-header" style={{

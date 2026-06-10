@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { AnimatedBackground } from './AnimatedBackground';
 
 interface Props {
   title: string;
@@ -31,5 +32,5 @@ export function PageShell({ title, badge, badgeColor, children }: Props) {
 
 /** Shared colorful background for demo pages */
 export function DemoBackground() {
-  return <div className="demo-bg" />;
+  return <AnimatedBackground className="demo-bg" />;
 }

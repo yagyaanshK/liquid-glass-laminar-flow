@@ -102,19 +102,19 @@ Every fix after `d855993` tried to patch symptoms instead of reverting to the wo
 
 ### Demo Pages (CSS+SVG, html2canvas)
 - **Inline React styles** on container elements: `style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', ... }}`
-- Background via `<DemoBackground />` (CSS `position: fixed` with `background: url(bg.jpg)`)
+- Background via `<DemoBackground />`, which renders `AnimatedBackground` with animated SVG dots, lines, and rings.
 - `.glass-controls` sidebar: CSS class with `position: fixed; z-index: 50` and its own frosted glass properties
 
 ### WebGL Page
-- Background via `BackgroundCanvas` (programmatic canvas, `position: fixed`)
-- `bg.jpg` path must use `import.meta.env.BASE_URL` for GitHub Pages compatibility
+- Background via `BackgroundCanvas` (programmatic animated canvas, `position: fixed`)
+- The canvas background is procedural; do not reintroduce hardcoded image texture paths.
 - `.glass-controls` sidebar: same `position: fixed` CSS approach
 
 ### Rules
 1. **Never use a shared utility class for `backdrop-filter`** — each element needs its own specific styling
 2. **`z-index: 1` on `.demo-area` is fine** — the fixed-position background is painted below it at the viewport level
 3. **`.glass-controls` must be `position: fixed`** with its own frosted properties in CSS — don't wrap it in extra components
-4. **Asset paths** must use `import.meta.env.BASE_URL` prefix for GitHub Pages deployment
+4. **Background texture sources** must remain compatible with GitHub Pages deployment and must not depend on root-relative image paths.
 
 ---
 

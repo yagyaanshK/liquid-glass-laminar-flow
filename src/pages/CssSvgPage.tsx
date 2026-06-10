@@ -88,7 +88,7 @@ export default function CssSvgPage() {
             padding: '0.75rem 2rem',
             border: 'none',
             cursor: 'pointer',
-            color: 'var(--text)',
+            color: 'rgba(255,255,255,0.82)',
             fontFamily: 'var(--font)',
             fontSize: '0.9rem',
             fontWeight: 500,
@@ -98,7 +98,7 @@ export default function CssSvgPage() {
 
           {/* Pill */}
           <div className="css-glass" style={{ width: 160, height: 48, borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-dim)' }}>Frosted Pill</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'rgba(255,255,255,0.62)' }}>Frosted Pill</span>
           </div>
         </div>
 
