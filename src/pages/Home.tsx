@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatedBackground } from '../components/AnimatedBackground';
 
@@ -6,29 +7,33 @@ const APPROACHES = [
     path: '/webgl',
     title: 'WebGL Shader',
     desc: 'Custom GLSL fragment shader with SDF edge detection, per-pixel UV displacement, chromatic aberration, and animated specular highlights.',
-    tech: 'WebGL 1 • GLSL • Canvas 2D',
+    tech: 'WebGL 1 / GLSL / Canvas 2D',
+    best: 'Best for high-fidelity scenes',
     color: '#ff6b4a',
   },
   {
     path: '/css-svg',
     title: 'CSS + SVG Filters',
     desc: 'Pure CSS backdrop-filter with SVG feDisplacementMap for refraction, feSpecularLighting for highlights, and layered box-shadows for bevel.',
-    tech: 'CSS • SVG Filters • No JavaScript',
+    tech: 'CSS / SVG Filters / No JavaScript',
+    best: 'Best for lightweight experiments',
     color: '#3ecf8e',
   },
   {
     path: '/html2canvas',
     title: 'html2canvas Snapshot',
     desc: 'DOM snapshot via html2canvas uploaded as a WebGL texture. The shader refracts the captured page content through each glass element.',
-    tech: 'html2canvas • WebGL • GLSL',
+    tech: 'html2canvas / WebGL / GLSL',
+    best: 'Best for DOM-heavy prototypes',
     color: '#e8a838',
   },
   {
     path: '/svg-map',
-    title: 'SVG Map Glass',
-    desc: 'Aave-style component-scoped glass using generated displacement maps. Fast for controls because maps are cached per lens geometry.',
-    tech: 'SVG Filters • Cached PNG Map • DOM',
-    color: '#8f7bff',
+    title: 'Interactive SVG Map',
+    desc: 'Aave-style component-scoped glass using cached displacement maps, stable foreground controls, and real buttons, pills, sliders, and media controls.',
+    tech: 'SVG Filters / Cached PNG Map / DOM',
+    best: 'Best for production UI controls',
+    color: '#b9d7ff',
   },
 ];
 
@@ -37,35 +42,39 @@ export default function Home() {
     <div className="home">
       <AnimatedBackground />
 
-      {/* Content */}
       <header className="home-header" style={{
         background: 'rgba(0, 0, 0, 0.65)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         border: '1px solid rgba(255, 255, 255, 0.08)',
       }}>
+        <span className="home-kicker">Interactive implementation lab</span>
         <h1 className="home-title">Liquid Glass</h1>
         <p className="home-subtitle">
-          A comparison of web-based approaches to Apple's Liquid Glass refraction effect.
-          <br />
-          Each page implements the same glass aesthetic using a different rendering technique.
+          Compare four browser-native ways to build refractive interface glass, from full shader pipelines to
+          lightweight component-scoped SVG filters.
         </p>
+        <div className="home-actions" aria-label="Primary demos">
+          <Link to="/svg-map" className="home-primary-link">Open interactive UI</Link>
+          <Link to="/webgl" className="home-secondary-link">View shader route</Link>
+        </div>
       </header>
 
-      <section className="home-grid">
-        {APPROACHES.map(a => (
-          <Link key={a.path} to={a.path} className="home-card" style={{
-            '--card-accent': a.color,
+      <section className="home-grid" aria-label="Implementation approaches">
+        {APPROACHES.map((approach, index) => (
+          <Link key={approach.path} to={approach.path} className="home-card" style={{
+            '--card-accent': approach.color,
             background: 'rgba(0, 0, 0, 0.7)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
-          } as React.CSSProperties}>
-            <div className="card-number">{APPROACHES.indexOf(a) + 1}</div>
-            <h2 className="card-title">{a.title}</h2>
-            <p className="card-desc">{a.desc}</p>
-            <span className="card-tech">{a.tech}</span>
-            <span className="card-arrow">→</span>
+          } as CSSProperties}>
+            <div className="card-number">{index + 1}</div>
+            <h2 className="card-title">{approach.title}</h2>
+            <p className="card-desc">{approach.desc}</p>
+            <span className="card-best">{approach.best}</span>
+            <span className="card-tech">{approach.tech}</span>
+            <span className="card-arrow">Open</span>
           </Link>
         ))}
       </section>
@@ -73,10 +82,10 @@ export default function Home() {
       <footer className="home-footer">
         <p>
           Reference implementations:{' '}
-          <a href="https://github.com/naughtyduk/liquidGL" target="_blank" rel="noopener noreferrer">liquidGL</a>{' · '}
-          <a href="https://github.com/ybouane/liquidglass" target="_blank" rel="noopener noreferrer">@ybouane/liquidglass</a>{' · '}
-          <a href="https://github.com/iyinchao/liquid-glass-studio" target="_blank" rel="noopener noreferrer">liquid-glass-studio</a>{' · '}
-          <a href="https://kube.io/blog/liquid-glass-css-svg/" target="_blank" rel="noopener noreferrer">kube.io</a>{' · '}
+          <a href="https://github.com/naughtyduk/liquidGL" target="_blank" rel="noopener noreferrer">liquidGL</a>{' / '}
+          <a href="https://github.com/ybouane/liquidglass" target="_blank" rel="noopener noreferrer">@ybouane/liquidglass</a>{' / '}
+          <a href="https://github.com/iyinchao/liquid-glass-studio" target="_blank" rel="noopener noreferrer">liquid-glass-studio</a>{' / '}
+          <a href="https://kube.io/blog/liquid-glass-css-svg/" target="_blank" rel="noopener noreferrer">kube.io</a>{' / '}
           <a href="https://aave.com/design/building-glass-for-the-web" target="_blank" rel="noopener noreferrer">Aave Design</a>
         </p>
       </footer>

@@ -11,8 +11,10 @@ The following audit findings have since been addressed:
 - The large `bg.jpg` and `bg-landscape.jpg` assets were removed from the app.
 - WebGL shape labels are now anchored inside the same DOM elements registered as glass lenses, keeping labels and glass visuals aligned while scrolling.
 - The live WebGL path now caps render DPR at `1.5`, pre-renders the static canvas background layer, and uses `texSubImage2D` for same-size live texture updates.
+- The landing page now presents four approaches with practical "best for" guidance and direct entry points to the interactive SVG-map and WebGL routes.
+- The fourth SVG-map route has been redesigned as an interactive control surface with clickable tabs, buttons, sliders, toggles, media controls, stronger glass rim treatment, and explanatory implementation panels.
 
-Historical findings below may refer to the pre-refactor photo background and the earlier WebGL label layout.
+Historical findings below may refer to the pre-refactor photo background, the earlier WebGL label layout, or the pre-redesign static SVG-map page.
 
 ## Scope and Method
 

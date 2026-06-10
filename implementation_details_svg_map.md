@@ -13,7 +13,7 @@ The result is much cheaper for interface controls:
 3. Use an SVG filter to displace the component's chosen content layer.
 4. Move or animate the glass element without regenerating the map.
 
-This approach is best for production UI controls, cards, pills, and compact panels where the glass should refract deliberate component content rather than the entire page behind it.
+This approach is best for production UI controls, cards, pills, sliders, media controls, and compact panels where the glass should refract deliberate component content rather than the entire page behind it.
 
 ## Key Components
 
@@ -51,17 +51,31 @@ The filtered layer is the component's own refraction target, not the whole page 
 
 ### 3. Visual Layering
 
-The component uses three layers:
+The component uses four layers:
 
-1. Filtered target content: neon lines, dots, and text that show displacement clearly.
-2. Glass surface: highlights, borders, inner shadows, and translucent fill.
-3. Stable label: readable foreground copy that is not distorted.
+1. Filtered target content: animated rows, dashed lines, dots, and soft color fields that show displacement clearly.
+2. Glass surface: translucent fill, backdrop blur, saturation, and subtle tint.
+3. Rim and specular overlays: inner border, edge shadows, and highlight gradients that make the lens read as thick glass.
+4. Stable foreground controls: readable buttons, tabs, sliders, toggles, and media controls that are not distorted.
+
+The key UX rule is that interaction belongs in the stable foreground layer. The refracted layer is there to show optical movement and depth, not to make labels or controls harder to use.
+
+### 4. Current Demo Interaction Model
+
+`src/pages/AaveSvgPage.tsx` demonstrates the technique with:
+
+- A large glass console with clickable navigation pills, market buttons, a protected-mode toggle, a refraction-strength slider, and primary/secondary actions.
+- Compact glass controls for navigation pills, video-style playback/progress/volume controls, and button states.
+- Explanatory panels describing render scope, map lifecycle, and appropriate use cases.
+
+The refraction slider changes the `scale` passed to `feDisplacementMap`. This updates filter strength without regenerating the cached displacement map.
 
 ## Why It Is Fast
 
 - The filter is scoped to a component-sized region.
 - The displacement map is generated only when geometry changes.
 - Moving the component does not require map regeneration.
+- Updating ordinary React state, button states, or slider values does not require map regeneration.
 - There is no full-screen texture upload.
 - The SVG/DOM background animations use transform-based movement rather than animated `stroke-dashoffset`.
 
@@ -77,6 +91,8 @@ The component uses three layers:
 - Buttons
 - Toggle controls
 - Navigation pills
+- Sliders
+- Media controls
 - Cards
 - Small panels
 - UI systems where performance matters more than full-scene optical accuracy

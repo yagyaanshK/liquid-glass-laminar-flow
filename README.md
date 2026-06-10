@@ -1,6 +1,6 @@
 # Liquid Glass Laminar Flow Showcase
 
-A high-fidelity refraction engine showcase demonstrating three distinct architectural patterns for achieving "Liquid Glass" effects in the browser. This repository is designed to be agent-ready, with structured implementation detail files that can be used as context for AI coding assistants.
+A high-fidelity refraction engine showcase demonstrating four distinct architectural patterns for achieving "Liquid Glass" effects in the browser. This repository is designed to be agent-ready, with structured implementation detail files that can be used as context for AI coding assistants.
 
 ## Overview
 
@@ -11,7 +11,7 @@ This repository implements:
 1. **WebGL / GLSL Shader**: Real-time pixel displacement over a live animated canvas using mathematical Signed Distance Functions (SDFs).
 2. **CSS + SVG Filters**: Hardware-accelerated refraction using `feDisplacementMap` and `backdrop-filter`.
 3. **DOM Snapshotting**: Full-page refraction over complex HTML layouts using `html2canvas` and WebGL.
-4. **SVG Displacement Maps**: Aave-style component-scoped glass using generated and cached PNG displacement maps.
+4. **Interactive SVG Displacement Maps**: Aave-style component-scoped glass using generated and cached PNG displacement maps for real UI controls.
 
 The demo background is intentionally minimal: animated dots, lines, and rings move behind the glass so refraction is easy to see without the UI competing with a busy photo.
 
@@ -53,7 +53,7 @@ If you are working with an AI coding assistant and want to implement these featu
 - **Tunable Parameters**: A unified control system for refraction, bevel depth, frost blur, chromatic aberration, Fresnel, and more.
 - **Animated Abstract Backgrounds**: Minimal moving dots, lines, and rings that make refraction visible without overpowering the UI.
 - **Smooth WebGL Demo Layout**: Labels are anchored to their glass lenses, and the live texture path avoids repeated GPU texture allocation for same-size frames.
-- **Aave-Style SVG Map Glass**: Component-sized filters with cached displacement maps for fast controls and cards.
+- **Interactive Aave-Style SVG Map Glass**: Component-sized filters with cached displacement maps, stable foreground controls, navigation pills, sliders, action buttons, media controls, and explanatory tradeoff panels.
 
 ## Getting Started
 
