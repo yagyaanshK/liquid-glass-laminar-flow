@@ -8,7 +8,7 @@ This project explores the "Liquid Glass" design language where UI elements behav
 
 This repository implements:
 
-1. **WebGL / GLSL Shader**: Real-time pixel displacement over a live animated canvas using mathematical Signed Distance Functions (SDFs).
+1. **WebGL / GLSL Shader**: Real-time pixel displacement over a live animated canvas using mathematical Signed Distance Functions (SDFs), with an optional black-hole-inspired gravity lens field.
 2. **CSS + SVG Filters**: Hardware-accelerated refraction using `feDisplacementMap` and `backdrop-filter`.
 3. **DOM Snapshotting**: Full-page refraction over complex HTML layouts using `html2canvas` and WebGL.
 4. **Aave-Style SVG Displacement Maps**: Component-scoped moving lenses using generated and cached PNG maps, RGB channel splitting, specular masks, and native real UI controls underneath.
@@ -52,7 +52,7 @@ If you are working with an AI coding assistant and want to implement these featu
 - **Mathematical SDF Shapes**: Includes precise 2D geometry math for rectangles, circles, ellipses, triangles, and hexagons.
 - **Tunable Parameters**: A unified control system for refraction, bevel depth, frost blur, chromatic aberration, Fresnel, and more.
 - **Animated Abstract Backgrounds**: Minimal moving dots, lines, and rings that make refraction visible without overpowering the UI.
-- **Smooth WebGL Demo Layout**: Labels are anchored to their glass lenses, and the live texture path avoids repeated GPU texture allocation for same-size frames.
+- **Smooth WebGL Demo Layout**: Labels are anchored to their glass lenses, the live texture path avoids repeated GPU texture allocation for same-size frames, and the shader includes a tunable gravity-lens field adapted from black-hole screen-space lensing.
 - **Interactive Aave-Style SVG Map Glass**: Component-sized moving lenses with cached displacement maps, chromatic aberration, edge/specular masks, native tabs, sliders, toggles, media controls, and explanatory tradeoff panels.
 
 ## Getting Started

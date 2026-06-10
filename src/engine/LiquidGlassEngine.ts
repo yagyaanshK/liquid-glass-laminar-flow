@@ -35,9 +35,13 @@ const FRAGMENT_SHADER = `
   uniform float u_edgeHighlight;   // 0–1
   uniform float u_brightness;      // -1 to 1
   uniform float u_saturation;      // -1 to 1
+  uniform float u_gravityStrength; // Einstein-radius style radial bend
+  uniform float u_gravityFalloff;  // far-field damping
+  uniform float u_gravitySoftness; // center clamp to avoid singularity
   uniform float u_time;
   uniform bool  u_specular;
   uniform int   u_shape;           // 0: rect, 1: circle, 2: ellipse, 3: triangle, 4: hexagon
+  uniform int   u_lensField;       // 0: SDF edge glass, 1: gravity field
 
   // Signed distance to a rounded rectangle (Inigo Quilez)
   float sdRoundBox(vec2 p, vec2 b, float r) {
@@ -147,12 +151,27 @@ const FRAGMENT_SHADER = `
 
     // Refraction offset
     vec2 p = v_uv - 0.5;
-    p.x *= u_resolution.x / max(u_resolution.y, 0.001);
+    float aspect = u_resolution.x / max(u_resolution.y, 0.001);
+    p.x *= aspect;
 
     float edge = edgeFactor(v_uv);
-    float offsetAmt = edge * u_refraction + pow(edge, 10.0) * u_bevelDepth;
-    float centreBlend = smoothstep(0.15, 0.45, length(p));
-    vec2 offset = normalize(p + 0.0001) * offsetAmt * centreBlend;
+    vec2 dir = normalize(p + 0.0001);
+    vec2 offset;
+    float chromaField = edge;
+
+    if (u_lensField == 1) {
+      float r = length(p);
+      float theta = max(u_gravityStrength, 0.0);
+      float defl = (theta * theta / max(r + u_gravitySoftness, 0.01)) * exp(-r * r * u_gravityFalloff);
+      float boundaryFade = 1.0 - smoothstep(0.38, 1.0, edge);
+      defl *= boundaryFade;
+      offset = vec2(-dir.x / aspect, -dir.y) * defl;
+      chromaField = clamp(defl / max(theta * 0.65, 0.001), 0.0, 1.0) * boundaryFade;
+    } else {
+      float offsetAmt = edge * u_refraction + pow(edge, 10.0) * u_bevelDepth;
+      float centreBlend = smoothstep(0.15, 0.45, length(p));
+      offset = dir * offsetAmt * centreBlend;
+    }
 
     // Map local UV → texture UV
     vec2 flippedUV = vec2(v_uv.x, 1.0 - v_uv.y);
@@ -163,8 +182,8 @@ const FRAGMENT_SHADER = `
     // Sample with optional frost (golden angle spiral disk blur)
     vec4 refrCol;
     // Pre-compute chromatic aberration direction
-    float caOff = (u_chromAberration > 0.0) ? u_chromAberration * edge * 0.01 : 0.0;
-    vec2 caDir = (u_chromAberration > 0.0) ? normalize(p + 0.0001) : vec2(0.0);
+    float caOff = (u_chromAberration > 0.0) ? u_chromAberration * chromaField * 0.01 : 0.0;
+    vec2 caDir = (u_chromAberration > 0.0) ? dir : vec2(0.0);
     vec2 caOffR = caDir * caOff;
     vec2 caOffB = -caDir * caOff;
 
@@ -283,9 +302,11 @@ const FRAGMENT_SHADER = `
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type GlassShape = 'rect' | 'circle' | 'ellipse' | 'triangle' | 'hexagon';
+export type LensFieldMode = 'sdf' | 'gravity';
 
 export interface GlassConfig {
   shape?: GlassShape;
+  lensField: LensFieldMode;
   refraction: number;
   bevelDepth: number;
   bevelWidth: number;
@@ -296,11 +317,15 @@ export interface GlassConfig {
   edgeHighlight: number;
   brightness: number;
   saturation: number;
+  gravityStrength: number;
+  gravityFalloff: number;
+  gravitySoftness: number;
   specular: boolean;
 }
 
 export const DEFAULT_CONFIG: GlassConfig = {
   shape: 'rect',
+  lensField: 'sdf',
   refraction: 0.03,
   bevelDepth: 0.08,
   bevelWidth: 0.18,
@@ -311,6 +336,9 @@ export const DEFAULT_CONFIG: GlassConfig = {
   edgeHighlight: 0.06,
   brightness: 0.0,
   saturation: 0.0,
+  gravityStrength: 0.09,
+  gravityFalloff: 4.0,
+  gravitySoftness: 0.05,
   specular: true,
 };
 
@@ -421,7 +449,8 @@ export class LiquidGlassEngine {
       'u_texture', 'u_resolution', 'u_texResolution', 'u_bounds',
       'u_radius', 'u_refraction', 'u_bevelDepth', 'u_bevelWidth',
       'u_frost', 'u_chromAberration', 'u_fresnel', 'u_edgeHighlight',
-      'u_brightness', 'u_saturation', 'u_time', 'u_specular', 'u_shape'
+      'u_brightness', 'u_saturation', 'u_gravityStrength', 'u_gravityFalloff',
+      'u_gravitySoftness', 'u_time', 'u_specular', 'u_shape', 'u_lensField'
     ];
     for (const n of names) this.uniforms[n] = gl.getUniformLocation(prog, n);
 
@@ -598,8 +627,12 @@ export class LiquidGlassEngine {
       gl.uniform1f(this.uniforms.u_edgeHighlight, c.edgeHighlight);
       gl.uniform1f(this.uniforms.u_brightness, c.brightness);
       gl.uniform1f(this.uniforms.u_saturation, c.saturation);
+      gl.uniform1f(this.uniforms.u_gravityStrength, c.gravityStrength);
+      gl.uniform1f(this.uniforms.u_gravityFalloff, c.gravityFalloff);
+      gl.uniform1f(this.uniforms.u_gravitySoftness, c.gravitySoftness);
       gl.uniform1i(this.uniforms.u_specular, c.specular ? 1 : 0);
       gl.uniform1i(this.uniforms.u_shape, SHAPE_MAP[c.shape || 'rect']);
+      gl.uniform1i(this.uniforms.u_lensField, c.lensField === 'gravity' ? 1 : 0);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       gl.disable(gl.SCISSOR_TEST);

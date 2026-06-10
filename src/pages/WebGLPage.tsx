@@ -5,8 +5,36 @@ import { ControlsDrawer } from '../components/ControlsDrawer';
 import { LiquidGlassEngine, DEFAULT_CONFIG, type GlassConfig } from '../engine/LiquidGlassEngine';
 import { BackgroundCanvas } from '../engine/BackgroundCanvas';
 
+const GRAVITY_MODE_CONFIG: Partial<GlassConfig> = {
+  lensField: 'gravity',
+  gravityStrength: 0.105,
+  gravityFalloff: 4.2,
+  gravitySoftness: 0.045,
+  frost: 0,
+  chromAberration: 0.16,
+  fresnel: 1.1,
+  edgeHighlight: 0.1,
+  cornerRadius: 96,
+  specular: true,
+};
+
+function getInitialConfig(): GlassConfig {
+  const hashQuery = window.location.hash.split('?')[1] ?? '';
+  const params = new URLSearchParams(hashQuery);
+  return {
+    ...DEFAULT_CONFIG,
+    ...(params.get('field') === 'gravity' ? GRAVITY_MODE_CONFIG : {}),
+  };
+}
+
+function getInitialDrawerOpen(): boolean {
+  const hashQuery = window.location.hash.split('?')[1] ?? '';
+  return new URLSearchParams(hashQuery).get('controls') === 'open';
+}
+
 export default function WebGLPage() {
-  const [config, setConfig] = useState<GlassConfig>({ ...DEFAULT_CONFIG });
+  const [config, setConfig] = useState<GlassConfig>(getInitialConfig);
+  const isGravityLens = config.lensField === 'gravity';
   const panelRef = useRef<HTMLDivElement>(null);
   const circleRef = useRef<HTMLDivElement>(null);
   const ellipseRef = useRef<HTMLDivElement>(null);
@@ -76,8 +104,12 @@ export default function WebGLPage() {
           <div style={{ textAlign: 'center' }}>
             <div ref={panelRef} className="demo-panel" style={{ borderRadius: config.cornerRadius }}>
               <div className="demo-panel-content" style={{ background: 'rgba(0,0,0,0.65)', borderRadius: 24, padding: '2.5rem', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <h2 style={{ color: '#fff' }}>Rectangle SDF</h2>
-                <p style={{ color: 'rgba(255,255,255,0.7)', marginTop: '0.75rem' }}>Standard Rounded Rectangle SDF.</p>
+                <h2 style={{ color: '#fff' }}>{isGravityLens ? 'Gravity Lens Field' : 'Rectangle SDF'}</h2>
+                <p style={{ color: 'rgba(255,255,255,0.7)', marginTop: '0.75rem' }}>
+                  {isGravityLens
+                    ? 'Radial theta^2/r deflection, clipped by the same rounded rectangle SDF.'
+                    : 'Standard rounded rectangle SDF with edge-driven refraction.'}
+                </p>
               </div>
             </div>
           </div>
@@ -85,34 +117,34 @@ export default function WebGLPage() {
           {/* Circle */}
           <div className="webgl-shape-stage">
             <div ref={circleRef} className="webgl-lens" style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1', borderRadius: '50%' }}>
-              <div className="webgl-lens-label">Circle SDF</div>
+              <div className="webgl-lens-label">{isGravityLens ? 'Circle Gravity Field' : 'Circle SDF'}</div>
             </div>
           </div>
 
           {/* Ellipse */}
           <div className="webgl-shape-stage">
             <div ref={ellipseRef} className="webgl-lens" style={{ width: 'min(650px, 90vw)', aspectRatio: '650/380', borderRadius: '50%' }}>
-              <div className="webgl-lens-label">Ellipse SDF</div>
+              <div className="webgl-lens-label">{isGravityLens ? 'Ellipse Gravity Field' : 'Ellipse SDF'}</div>
             </div>
           </div>
 
           {/* Equilateral Triangle */}
           <div className="webgl-shape-stage">
             <div ref={triangleRef} className="webgl-lens" style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1' }}>
-              <div className="webgl-lens-label">Triangle SDF</div>
+              <div className="webgl-lens-label">{isGravityLens ? 'Triangle Gravity Field' : 'Triangle SDF'}</div>
             </div>
           </div>
 
           {/* Hexagon */}
           <div className="webgl-shape-stage">
             <div ref={hexagonRef} className="webgl-lens" style={{ width: 'min(450px, 85vw)', aspectRatio: '1/1' }}>
-              <div className="webgl-lens-label">Hexagon SDF</div>
+              <div className="webgl-lens-label">{isGravityLens ? 'Hexagon Gravity Field' : 'Hexagon SDF'}</div>
             </div>
           </div>
         </div>
       </div>
 
-      <ControlsDrawer>
+      <ControlsDrawer defaultOpen={getInitialDrawerOpen()}>
         <GlassControls config={config} onChange={setConfig} />
       </ControlsDrawer>
     </PageShell>

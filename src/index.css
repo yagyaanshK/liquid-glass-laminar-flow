@@ -693,6 +693,41 @@ a {
   color: var(--accent-coral);
 }
 
+.field-mode-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin-bottom: 1.1rem;
+}
+
+.field-mode-btn {
+  min-height: 34px;
+  padding: 0.3rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.72);
+  font-family: var(--font);
+  font-size: 0.68rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.field-mode-btn:hover,
+.field-mode-btn.active {
+  background: rgba(255, 107, 74, 0.14);
+  border-color: rgba(255, 107, 74, 0.38);
+  color: var(--accent-coral);
+}
+
+.field-mode-note {
+  grid-column: 1 / -1;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
 .sliders-grid {
   display: flex;
   flex-direction: column;

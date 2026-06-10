@@ -6,7 +6,7 @@ const APPROACHES = [
   {
     path: '/webgl',
     title: 'WebGL Shader',
-    desc: 'Custom GLSL fragment shader with SDF edge detection, per-pixel UV displacement, chromatic aberration, and animated specular highlights.',
+    desc: 'Custom GLSL fragment shader with SDF edge refraction, optional gravity-lens field distortion, chromatic aberration, and animated specular highlights.',
     tech: 'WebGL 1 / GLSL / Canvas 2D',
     best: 'Best for high-fidelity scenes',
     color: '#ff6b4a',

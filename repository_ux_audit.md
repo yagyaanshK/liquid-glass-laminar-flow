@@ -11,6 +11,7 @@ The following audit findings have since been addressed:
 - The large `bg.jpg` and `bg-landscape.jpg` assets were removed from the app.
 - WebGL shape labels are now anchored inside the same DOM elements registered as glass lenses, keeping labels and glass visuals aligned while scrolling.
 - The live WebGL path now caps render DPR at `1.5`, pre-renders the static canvas background layer, and uses `texSubImage2D` for same-size live texture updates.
+- The WebGL shader now includes a Gravity Lens Field mode adapted from black-hole screen-space lensing, with tunable strength, falloff, and softness controls.
 - The landing page now presents four approaches with practical "best for" guidance and direct entry points to the interactive SVG-map and WebGL routes.
 - The fourth SVG-map route has been rebuilt as a clean-room Aave-style moving lens with cached dome displacement maps, RGB chroma splitting, a blue-channel specular/edge mask, native controls underneath, refracted local-content copies above, and premium interactive tabs, sliders, toggles, media controls, and explanatory panels.
 

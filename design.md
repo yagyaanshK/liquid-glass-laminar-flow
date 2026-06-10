@@ -68,6 +68,7 @@ Used by: **liquidGL (NaughtyDuk)**, **@ybouane/liquidglass**, **liquid-glass-stu
 3. For each glass element, render a fullscreen quad with a custom fragment shader that:
    - Computes a signed distance field (SDF) from the element's rounded-rect boundary
    - Uses the SDF to derive the edge factor and normal direction
+   - Optionally switches to a black-hole-inspired radial `theta^2 / r` gravity lens field
    - Offsets UV coordinates based on the edge factor to simulate refraction
    - Optionally applies Gaussian blur, chromatic aberration, specular highlights
 4. Render the output onto a `<canvas>` overlaid on the DOM element
@@ -388,6 +389,7 @@ import { LiquidGlass } from 'https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/d
 - `BackgroundCanvas` pre-renders the static dark ambient layer on resize and redraws only animated flow elements per frame.
 - `LiquidGlassEngine` uses `texImage2D` only when texture dimensions change, then uses `texSubImage2D` for same-size live updates.
 - WebGL shape labels are nested inside the same DOM elements registered as lenses so scrolling keeps labels and refracted shapes aligned.
+- WebGL includes a tunable Gravity Lens Field mode adapted from `s0xDk/ghostty-blackhole`, using a softened `theta^2 / r` radial field plus far-field damping and SDF boundary fade.
 - The SVG map route caches generated PNG displacement maps by lens geometry/tuning, encodes dome normals in RG and specular masks in B, and uses a clipped moving copy so native controls remain interactive underneath the refracted lens.
 
 ### From kube.io (CSS/SVG approach):
@@ -445,6 +447,7 @@ import { LiquidGlass } from 'https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/d
 | Inigo Quilez — Smooth merge (smin) | https://iquilezles.org/articles/smin/ |
 | GPU-accelerated CSS animations (Smashing Magazine) | https://www.smashingmagazine.com/2016/12/gpu-animation-doing-it-right/ |
 | nkzw-tech/liquid-glass | https://github.com/nkzw-tech/liquid-glass |
+| s0xDk/ghostty-blackhole | https://github.com/s0xDk/ghostty-blackhole |
 | SVG backdrop-filter spec | https://drafts.fxtf.org/filter-effects-2/#BackdropFilterProperty |
 | WebKit bug for SVG filter backdrop | https://bugs.webkit.org/show_bug.cgi?id=127102 |
 

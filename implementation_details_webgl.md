@@ -42,6 +42,41 @@ The core of the effect happens on the GPU. The fragment shader calculates a Sign
 - **Refraction:** Displacing UV coordinates based on the SDF normal vector.
 - **Dispersion (Chromatic Aberration):** Sampling the red, green, and blue channels of the texture at slightly different offset vectors.
 - **Specular Highlights:** Animated light streaks simulating reflections bouncing off the glass surface.
+- **Gravity Lens Field:** Optional black-hole-inspired radial displacement using a weak-field `theta^2 / r` formula, clipped by the existing SDF shapes.
+
+#### Gravity Lens Field Mode
+
+The WebGL route includes an alternate field mode inspired by `s0xDk/ghostty-blackhole`: https://github.com/s0xDk/ghostty-blackhole
+
+That project achieves smooth terminal lensing by running one full-screen fragment shader over Ghostty's terminal texture and remapping UV coordinates directly. This repo adapts the useful part of that idea as a bounded UI lens:
+
+```glsl
+vec2 p = v_uv - 0.5;
+p.x *= aspect;
+float r = length(p);
+vec2 dir = normalize(p + 0.0001);
+
+float defl = (theta * theta / max(r + softness, 0.01)) * exp(-r * r * falloff);
+defl *= boundaryFade;
+
+vec2 offset = vec2(-dir.x / aspect, -dir.y) * defl;
+vec2 refracted = mapped + offset;
+```
+
+The important production detail is that the displacement field itself fades to zero before the SDF boundary. This avoids a visible seam at the clipped edge, which is smoother than blending warped and unwarped colors after sampling.
+
+Controls exposed in the drawer:
+
+- `Gravity Strength`: equivalent to the Einstein-radius term `theta`.
+- `Gravity Falloff`: damps the far field with `exp(-r*r*falloff)`.
+- `Gravity Softness`: clamps the center so the UI lens does not create a singular black-hole collapse.
+
+The mode can also be opened directly with:
+
+```text
+/#/webgl?field=gravity
+/#/webgl?field=gravity&controls=open
+```
 
 ## Smoothness Notes
 
@@ -49,6 +84,7 @@ The core of the effect happens on the GPU. The fragment shader calculates a Sign
 - The background renderer pre-renders the static dark ambient layer on resize, then only redraws the animated flow field, neon lines, rings, dots, and grid each frame.
 - Shape labels in `WebGLPage.tsx` are nested inside the same DOM elements registered as lenses. This keeps the visible label and the shader-rendered glass object aligned during scroll.
 - The DOM/SVG background avoids animating SVG `stroke-dashoffset`; it uses transform-based motion for smoother compositor-friendly animation.
+- The gravity lens mode changes only the UV offset formula; it does not add DOM capture work, extra render passes, or new textures.
 
 ## Integration Example
 
