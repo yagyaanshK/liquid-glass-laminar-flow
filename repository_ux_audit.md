@@ -12,7 +12,7 @@ The following audit findings have since been addressed:
 - WebGL shape labels are now anchored inside the same DOM elements registered as glass lenses, keeping labels and glass visuals aligned while scrolling.
 - The live WebGL path now caps render DPR at `1.5`, pre-renders the static canvas background layer, and uses `texSubImage2D` for same-size live texture updates.
 - The landing page now presents four approaches with practical "best for" guidance and direct entry points to the interactive SVG-map and WebGL routes.
-- The fourth SVG-map route has been redesigned as an interactive control surface with clickable tabs, buttons, sliders, toggles, media controls, stronger glass rim treatment, and explanatory implementation panels.
+- The fourth SVG-map route has been rebuilt as a clean-room Aave-style moving lens with cached dome displacement maps, RGB chroma splitting, a blue-channel specular/edge mask, native controls underneath, refracted local-content copies above, and premium interactive tabs, sliders, toggles, media controls, and explanatory panels.
 
 Historical findings below may refer to the pre-refactor photo background, the earlier WebGL label layout, or the pre-redesign static SVG-map page.
 
@@ -531,5 +531,5 @@ If the goal is to improve UX quickly without destabilizing the shader work:
 
 - `npm run build` passed.
 - Local Vite server served the app at `/liquid-glass-laminar-flow/`.
-- Screenshots confirmed all three routes render.
+- Screenshots confirmed the routes render, including the fourth Aave-style SVG-map route at desktop and mobile viewports.
 - In-app Browser was unavailable, so interactive keyboard/focus behavior was inferred from source rather than fully exercised in a live browser.

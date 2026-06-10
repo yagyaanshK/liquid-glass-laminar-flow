@@ -1,282 +1,300 @@
-import { type CSSProperties, type ReactNode, useId, useMemo, useState } from 'react';
+import { type PointerEvent, useEffect, useRef, useState } from 'react';
+import { AaveLensGlass, type AaveLensParams } from '../components/AaveLensGlass';
 import { PageShell, DemoBackground } from '../components/PageShell';
-import { createRoundedGlassDisplacementMap } from '../engine/displacementMap';
 
+const TABS = ['Supply', 'Borrow', 'Stake'];
 const MARKETS = [
-  { name: 'ETH', rate: '3.12%', tone: 'coral' },
-  { name: 'USDC', rate: '4.84%', tone: 'mint' },
-  { name: 'AAVE', rate: '2.41%', tone: 'blue' },
+  { symbol: 'ETH', label: 'Ethereum', value: '$3,420.18', change: '+2.8%', tone: 'mint' },
+  { symbol: 'USDC', label: 'USD Coin', value: '$1.00', change: '+0.1%', tone: 'blue' },
+  { symbol: 'AAVE', label: 'Aave', value: '$284.92', change: '+5.6%', tone: 'coral' },
 ];
 
-const TABS = ['Overview', 'Markets', 'Risk', 'Settings'];
+const HERO_LENS: AaveLensParams = {
+  lensW: 178,
+  lensH: 124,
+  borderRadius: 62,
+  mapSize: 512,
+  depth: 42,
+  domeDepth: 104,
+  scaleX: 0.105,
+  scaleY: 0.095,
+  chromaAmount: 0.46,
+  blurAmount: 0.7,
+  brightness: 0.12,
+  splayAmount: 1,
+  specularRotation: 42,
+  glowStrength: 0.22,
+  glowSpread: 0.78,
+  glowExponent: 0.65,
+  edgeStrength: 0.42,
+  edgeWidth: 3,
+  edgeExponent: 1.45,
+};
 
-interface AaveGlassProps {
-  width: number;
-  height: number;
-  radius: number;
-  scale?: number;
-  className?: string;
-  children: ReactNode;
-  target?: ReactNode;
+const PILL_LENS: AaveLensParams = {
+  lensW: 94,
+  lensH: 48,
+  borderRadius: 24,
+  mapSize: 384,
+  depth: 24,
+  domeDepth: 58,
+  scaleX: 0.09,
+  scaleY: 0.085,
+  chromaAmount: 0.36,
+  blurAmount: 0.35,
+  brightness: 0.1,
+  glowStrength: 0.2,
+  edgeStrength: 0.36,
+};
+
+function useOrbitPosition(enabled: boolean) {
+  const [position, setPosition] = useState({ x: 0.64, y: 0.38 });
+  const manualUntil = useRef(0);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let frame = 0;
+    const tick = (time: number) => {
+      if (time > manualUntil.current) {
+        setPosition({
+          x: 0.54 + Math.sin(time * 0.00027) * 0.26,
+          y: 0.48 + Math.cos(time * 0.00023) * 0.24,
+        });
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [enabled]);
+
+  const setManualPosition = (x: number, y: number) => {
+    manualUntil.current = performance.now() + 2600;
+    setPosition({ x, y });
+  };
+
+  return [position, setManualPosition] as const;
 }
 
-function AaveGlass({
-  width,
-  height,
-  radius,
-  scale = 42,
-  className = '',
-  children,
-  target,
-}: AaveGlassProps) {
-  const rawId = useId().replace(/:/g, '');
-  const filterId = `aave-map-${rawId}`;
-  const mapUrl = useMemo(
-    () => createRoundedGlassDisplacementMap({ width, height, radius, bevelWidth: 0.34 }),
-    [width, height, radius],
-  );
-
+function ProductSurface({ activeTab, liquidity }: { activeTab: string; liquidity: number }) {
   return (
-    <div
-      className={`aave-glass ${className}`}
-      style={{
-        '--glass-width': `${width}px`,
-        '--glass-height': `${height}px`,
-        '--glass-radius': `${radius}px`,
-      } as CSSProperties}
-    >
-      <svg width="0" height="0" className="aave-filter-defs" aria-hidden="true">
-        <defs>
-          <filter id={filterId} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
-            <feImage href={mapUrl} x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map" />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="map"
-              scale={scale}
-              xChannelSelector="R"
-              yChannelSelector="G"
-              result="displaced"
-            />
-          </filter>
-        </defs>
-      </svg>
+    <div className="aave2-product-surface">
+      <div className="aave2-surface-bg" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
 
-      <div className="aave-glass-target" style={{ filter: `url(#${filterId})` }}>
-        {target ?? <TargetPattern />}
+      <div className="aave2-card-header">
+        <div>
+          <span>Portfolio balance</span>
+          <strong>${liquidity.toLocaleString()}</strong>
+        </div>
+        <button type="button">Connect</button>
       </div>
-      <div className="aave-glass-surface" />
-      <div className="aave-glass-content">{children}</div>
-    </div>
-  );
-}
 
-function TargetPattern({ label = 'Live target layer' }: { label?: string }) {
-  return (
-    <div className="aave-target-pattern" aria-hidden="true">
-      <div className="aave-target-gradient" />
-      <div className="aave-target-lines">
-        <span />
-        <span />
-        <span />
-        <span />
-        <span />
-      </div>
-      <div className="aave-target-dots">
-        <span />
-        <span />
-        <span />
-        <span />
-        <span />
-        <span />
-      </div>
-      <div className="aave-target-copy">
-        <strong>{label}</strong>
-        <small>filtered only inside this component</small>
-      </div>
-    </div>
-  );
-}
-
-function FlowBackdrop({ value }: { value: number }) {
-  const intensity = 0.55 + value / 220;
-
-  return (
-    <div className="aave-panel-target" aria-hidden="true">
-      <div className="aave-panel-orbits">
-        <span />
-        <span />
-        <span />
-      </div>
-      <div className="aave-panel-rows">
-        {MARKETS.map((market, index) => (
-          <div className="aave-panel-row" key={market.name} style={{ '--row-index': index } as CSSProperties}>
-            <span className={`aave-market-dot ${market.tone}`} />
-            <span>{market.name}</span>
-            <strong>{market.rate}</strong>
-          </div>
+      <div className="aave2-tabs" role="tablist" aria-label="Market action">
+        {TABS.map(tab => (
+          <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} className={activeTab === tab ? 'active' : ''}>
+            {tab}
+          </button>
         ))}
       </div>
-      <div className="aave-panel-wave" style={{ opacity: intensity }} />
+
+      <div className="aave2-chart" aria-hidden="true">
+        <svg viewBox="0 0 520 150" preserveAspectRatio="none">
+          <path className="aave2-chart-fill" d="M0 120 C80 90 102 132 166 84 C232 34 270 84 330 52 C396 18 438 76 520 40 L520 150 L0 150 Z" />
+          <path className="aave2-chart-line" d="M0 120 C80 90 102 132 166 84 C232 34 270 84 330 52 C396 18 438 76 520 40" />
+          <path className="aave2-chart-line muted" d="M0 82 C80 52 138 96 206 62 C274 28 350 82 520 66" />
+        </svg>
+      </div>
+
+      <div className="aave2-market-grid">
+        {MARKETS.map(market => (
+          <button type="button" key={market.symbol} className="aave2-market-card">
+            <span className={`aave2-dot ${market.tone}`} />
+            <span>{market.symbol}</span>
+            <small>{market.label}</small>
+            <strong>{market.value}</strong>
+            <em>{market.change}</em>
+          </button>
+        ))}
+      </div>
     </div>
+  );
+}
+
+function GlassSwitch() {
+  const [checked, setChecked] = useState(true);
+
+  return (
+    <AaveLensGlass
+      className="aave2-mini-demo aave2-switch-demo"
+      lens={{ ...PILL_LENS, lensW: 70, lensH: 42, borderRadius: 21, scaleX: 0.08 }}
+      x={checked ? 0.72 : 0.28}
+      y={0.5}
+    >
+      <button type="button" className="aave2-switch" aria-pressed={checked} onClick={() => setChecked(value => !value)}>
+        <span>{checked ? 'Enabled' : 'Disabled'}</span>
+        <strong>{checked ? 'Live' : 'Paused'}</strong>
+      </button>
+    </AaveLensGlass>
+  );
+}
+
+function GlassSlider() {
+  const [value, setValue] = useState(64);
+  const progress = value / 100;
+
+  return (
+    <AaveLensGlass className="aave2-mini-demo aave2-slider-demo" lens={PILL_LENS} x={progress} y={0.54}>
+      <label className="aave2-slider">
+        <span>
+          Refraction
+          <strong>{value}%</strong>
+        </span>
+        <input type="range" min="0" max="100" value={value} onChange={event => setValue(Number(event.target.value))} />
+      </label>
+    </AaveLensGlass>
+  );
+}
+
+function GlassSegmentedControl() {
+  const [active, setActive] = useState(1);
+  const options = ['Day', 'Week', 'Month'];
+
+  return (
+    <AaveLensGlass className="aave2-mini-demo aave2-segment-demo" lens={PILL_LENS} x={(active + 0.5) / options.length} y={0.56}>
+      <div className="aave2-segmented" role="tablist" aria-label="Time range">
+        {options.map((option, index) => (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={active === index}
+            key={option}
+            onClick={() => setActive(index)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </AaveLensGlass>
+  );
+}
+
+function GlassVideoControls() {
+  const [playing, setPlaying] = useState(true);
+  const [progress, setProgress] = useState(42);
+
+  return (
+    <AaveLensGlass className="aave2-video-demo" lens={{ ...PILL_LENS, lensW: 76, lensH: 76, borderRadius: 38, domeDepth: 78 }} x={0.17} y={0.5}>
+      <div className="aave2-video">
+        <button type="button" onClick={() => setPlaying(value => !value)} aria-label={playing ? 'Pause' : 'Play'}>
+          {playing ? 'Pause' : 'Play'}
+        </button>
+        <label>
+          <span style={{ width: `${progress}%` }} />
+          <input aria-label="Playback progress" type="range" min="0" max="100" value={progress} onChange={event => setProgress(Number(event.target.value))} />
+        </label>
+      </div>
+    </AaveLensGlass>
   );
 }
 
 export default function AaveSvgPage() {
   const [activeTab, setActiveTab] = useState(TABS[0]);
-  const [intensity, setIntensity] = useState(58);
-  const [volume, setVolume] = useState(68);
-  const [playing, setPlaying] = useState(true);
-  const [protectedMode, setProtectedMode] = useState(true);
+  const [liquidity, setLiquidity] = useState(128420);
+  const [lensPosition, setLensPosition] = useOrbitPosition(true);
+
+  const updateLens = (event: PointerEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setLensPosition(
+      Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+      Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+    );
+  };
 
   return (
-    <PageShell title="SVG Map Glass" badge="Interactive SVG" badgeColor="#b9d7ff">
+    <PageShell title="SVG Map Glass" badge="Aave-style Lens" badgeColor="#b9d7ff">
       <DemoBackground />
 
-      <main className="demo-area aave-page">
-        <section className="aave-hero" aria-labelledby="svg-map-title">
-          <div className="aave-hero-copy">
-            <span className="aave-kicker">Approach 04</span>
-            <h1 id="svg-map-title">Component-scoped glass for real product UI.</h1>
+      <main className="demo-area aave2-page">
+        <section className="aave2-hero" aria-labelledby="aave2-title">
+          <div className="aave2-copy">
+            <span>Approach 04</span>
+            <h1 id="aave2-title">A real lens, not a frosted card.</h1>
             <p>
-              This route follows the Aave-style strategy: generate a small displacement map for each lens, cache it by
-              geometry, then filter only the content that belongs inside that component. The foreground controls stay
-              sharp and clickable while the internal target layer bends like glass.
+              This implementation generates a dome-shaped displacement map, clips it to a moving lens, and refracts a
+              local copy of the component content. The buttons and inputs stay native, while the glass bends the UI
+              underneath it.
             </p>
           </div>
 
-          <AaveGlass
-            width={640}
-            height={500}
-            radius={44}
-            scale={Math.round(28 + intensity * 0.42)}
-            className="aave-control-glass"
-            target={<FlowBackdrop value={intensity} />}
+          <AaveLensGlass
+            className="aave2-showcase"
+            lens={HERO_LENS}
+            x={lensPosition.x}
+            y={lensPosition.y}
           >
-            <div className="aave-control-panel">
-              <div className="aave-panel-top">
-                <div>
-                  <span>Glass Console</span>
-                  <strong>{activeTab}</strong>
+            <section
+              className="aave2-showcase-hit"
+              onPointerMove={updateLens}
+              onPointerDown={updateLens}
+              aria-label="Interactive Aave-style glass lens demo"
+            >
+              <ProductSurface activeTab={activeTab} liquidity={liquidity} />
+              <div className="aave2-hero-controls">
+                <div className="aave2-tabs" role="tablist" aria-label="Primary action">
+                  {TABS.map(tab => (
+                    <button
+                      key={tab}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === tab}
+                      className={activeTab === tab ? 'active' : ''}
+                      onClick={() => setActiveTab(tab)}
+                    >
+                      {tab}
+                    </button>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  className={`aave-toggle ${protectedMode ? 'active' : ''}`}
-                  aria-pressed={protectedMode}
-                  onClick={() => setProtectedMode(value => !value)}
-                >
-                  Protected
-                </button>
+                <label className="aave2-liquidity-control">
+                  <span>Liquidity</span>
+                  <input
+                    type="range"
+                    min="64000"
+                    max="220000"
+                    step="1000"
+                    value={liquidity}
+                    onChange={event => setLiquidity(Number(event.target.value))}
+                  />
+                </label>
               </div>
-
-              <div className="aave-nav-pills" role="tablist" aria-label="Glass console sections">
-                {TABS.map(tab => (
-                  <button
-                    key={tab}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === tab}
-                    className={activeTab === tab ? 'active' : ''}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              <div className="aave-balance">
-                <span>Available liquidity</span>
-                <strong>${(48200 + intensity * 91).toLocaleString()}</strong>
-              </div>
-
-              <div className="aave-market-list" aria-label="Market rates">
-                {MARKETS.map(market => (
-                  <button type="button" key={market.name} className="aave-market-button">
-                    <span className={`aave-market-dot ${market.tone}`} />
-                    <span>{market.name}</span>
-                    <strong>{market.rate}</strong>
-                  </button>
-                ))}
-              </div>
-
-              <label className="aave-slider-row">
-                <span>
-                  Refraction strength
-                  <strong>{intensity}%</strong>
-                </span>
-                <input
-                  type="range"
-                  min="12"
-                  max="100"
-                  value={intensity}
-                  onChange={event => setIntensity(Number(event.target.value))}
-                />
-              </label>
-
-              <div className="aave-action-row">
-                <button type="button" className="aave-primary-action">Supply</button>
-                <button type="button" className="aave-secondary-action">Borrow</button>
-                <button type="button" className="aave-icon-action" aria-label="Open details">i</button>
-              </div>
-            </div>
-          </AaveGlass>
+            </section>
+          </AaveLensGlass>
         </section>
 
-        <section className="aave-interactive-strip" aria-label="Glass controls">
-          <AaveGlass width={336} height={112} radius={32} scale={32} className="aave-mini-glass">
-            <div className="aave-mini-control">
-              <span>Navigation pill</span>
-              <div className="aave-mini-pills">
-                <button type="button" className="active">Pool</button>
-                <button type="button">Vault</button>
-              </div>
-            </div>
-          </AaveGlass>
-
-          <AaveGlass width={336} height={112} radius={32} scale={30} className="aave-mini-glass">
-            <div className="aave-media-control">
-              <button type="button" onClick={() => setPlaying(value => !value)} aria-label={playing ? 'Pause' : 'Play'}>
-                {playing ? 'Pause' : 'Play'}
-              </button>
-              <div className="aave-progress">
-                <span style={{ width: `${playing ? 62 : 38}%` }} />
-              </div>
-              <input
-                aria-label="Volume"
-                type="range"
-                min="0"
-                max="100"
-                value={volume}
-                onChange={event => setVolume(Number(event.target.value))}
-              />
-            </div>
-          </AaveGlass>
-
-          <AaveGlass width={336} height={112} radius={32} scale={34} className="aave-mini-glass">
-            <div className="aave-mini-control">
-              <span>Button states</span>
-              <div className="aave-mini-actions">
-                <button type="button">Confirm</button>
-                <button type="button">Review</button>
-              </div>
-            </div>
-          </AaveGlass>
+        <section className="aave2-component-family" aria-label="Aave-style glass component family">
+          <GlassSwitch />
+          <GlassSlider />
+          <GlassSegmentedControl />
+          <GlassVideoControls />
         </section>
 
-        <section className="aave-explainer" aria-label="Implementation notes">
+        <section className="aave2-notes" aria-label="Implementation notes">
           <article>
-            <span>Render scope</span>
-            <strong>Each lens filters a local target layer.</strong>
-            <p>No full-page snapshot or live canvas upload is required for these controls.</p>
+            <span>Map</span>
+            <strong>Dome normals in RG, specular in B.</strong>
+            <p>The map drives refraction, chroma split, glow, and edge highlights from one cached image.</p>
           </article>
           <article>
-            <span>Map lifecycle</span>
-            <strong>Maps are generated only when geometry changes.</strong>
-            <p>Interaction can update CSS and component state without rebuilding the displacement image.</p>
+            <span>Layering</span>
+            <strong>Native controls below, refracted clone above.</strong>
+            <p>The lens is pointer-transparent, so the visible UI remains accessible and interactive.</p>
           </article>
           <article>
-            <span>Best fit</span>
-            <strong>Buttons, sliders, pills, cards, and compact panels.</strong>
-            <p>The technique prioritizes production UI performance over full-scene optical accuracy.</p>
+            <span>Scope</span>
+            <strong>Component-sized work, not full-page capture.</strong>
+            <p>Each lens samples only the component content it needs, matching the Aave article's production tradeoff.</p>
           </article>
         </section>
       </main>

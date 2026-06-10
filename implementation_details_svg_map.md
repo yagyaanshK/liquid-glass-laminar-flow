@@ -1,90 +1,105 @@
 # SVG Displacement Map Glass Implementation Details
 
-This document explains the fourth approach in this repository: component-scoped glass driven by generated SVG displacement maps. It is inspired by Aave's article, "Building Glass for the Web": https://aave.com/design/building-glass-for-the-web
+This document explains the fourth approach in this repository: Aave-style, component-scoped glass driven by generated SVG displacement maps.
+
+The route was informed by the public Aave design article, "Building Glass for the Web": https://aave.com/design/building-glass-for-the-web. A public source repository was not available, so this implementation is a clean-room React/SVG version that follows the same architectural idea rather than copying application source.
 
 ## Overview
 
-Unlike the WebGL route, this approach does not upload a full-screen live background texture every frame. Instead, each glass component owns a small generated PNG displacement map. The map's red and green channels encode x/y offsets for `feDisplacementMap`.
+This approach does not upload a full-screen live background texture every frame. Each lens owns a small generated PNG displacement map and uses that map inside an SVG filter. The visible lens moves over a local copy of the component content, while the real buttons, sliders, and tabs remain native DOM underneath.
 
-The result is much cheaper for interface controls:
+The result is much cheaper and more practical for product UI:
 
-1. Generate a displacement map for a specific lens size and radius.
-2. Cache that map by geometry.
-3. Use an SVG filter to displace the component's chosen content layer.
-4. Move or animate the glass element without regenerating the map.
+1. Generate a displacement map for a specific lens size, depth, radius, and tuning.
+2. Cache that map by geometry and optical parameters.
+3. Render the normal interactive component once.
+4. Render a pointer-transparent, clipped lens overlay above it.
+5. Inside the lens, render a translated copy of the same component content.
+6. Filter that copy through SVG displacement, chroma split, blur, brightness, and specular overlays.
+7. Move the lens with CSS/React state without regenerating the displacement map.
 
-This approach is best for production UI controls, cards, pills, sliders, media controls, and compact panels where the glass should refract deliberate component content rather than the entire page behind it.
+This is best for controls, cards, pills, sliders, media controls, and compact panels where the glass should refract deliberate component content rather than arbitrary pixels from the entire page.
 
-## Key Components
+## Key Files
 
-### 1. Displacement Map Generator
+- `src/engine/displacementMap.ts`: generates and caches the PNG displacement maps.
+- `src/components/AaveLensGlass.tsx`: reusable lens wrapper that creates the SVG filter and clipped refracted overlay.
+- `src/pages/AaveSvgPage.tsx`: the fourth route, with a premium interactive finance-style surface and smaller glass controls.
+- `src/index.css`: lens layering, route layout, responsive behavior, and visual styling.
 
-`src/engine/displacementMap.ts` generates a PNG data URL from a canvas.
+## Displacement Map Encoding
+
+`createAaveLensDisplacementMap()` renders map pixels to an offscreen canvas and returns a PNG data URL.
 
 Each pixel stores:
 
-- `R`: horizontal offset, neutral at `128`.
-- `G`: vertical offset, neutral at `128`.
-- `B`: neutral filler.
-- `A`: opaque map coverage.
+- `R`: horizontal displacement, neutral at `128`.
+- `G`: vertical displacement, neutral at `128`.
+- `B`: specular and edge mask intensity.
+- `A`: lens coverage mask.
 
-The map is strongest near the rounded-rect edge and fades toward the center. This mirrors the behavior of a thick lens: edges bend more than the middle.
+The red/green channels are derived from a rounded-rect dome model. The strongest bend occurs close to the glass rim, while the center behaves like a smoother magnifying lens. This is what makes the effect read as thick glass instead of a flat frosted card.
 
-### 2. SVG Filter
+The blue channel is reserved for highlight information. `AaveLensGlass` extracts it with `feColorMatrix` and composites it back as a rim/specular layer.
 
-`AaveSvgPage.tsx` creates a per-lens filter:
+## SVG Filter Pipeline
 
-```tsx
-<filter id={filterId} x="0" y="0" width="100%" height="100%">
-  <feImage href={mapUrl} width="100%" height="100%" preserveAspectRatio="none" result="map" />
-  <feDisplacementMap
-    in="SourceGraphic"
-    in2="map"
-    scale={scale}
-    xChannelSelector="R"
-    yChannelSelector="G"
-  />
-</filter>
-```
+`AaveLensGlass` builds a per-lens SVG filter:
 
-The filtered layer is the component's own refraction target, not the whole page backdrop.
+1. `feImage` loads the generated map.
+2. Optional `feGaussianBlur` softens the sampled source.
+3. Three `feDisplacementMap` passes sample red, green, and blue shifted variants.
+4. `feColorMatrix` isolates each color channel.
+5. `feComposite` combines the shifted channels into a chromatic-aberration result.
+6. A second `feColorMatrix` extracts the map's blue channel as a specular mask.
+7. The specular mask is composited over the refracted content.
 
-### 3. Visual Layering
+This mirrors the production tradeoff described by Aave: generate a reusable displacement texture, then let the browser's SVG filter pipeline do component-sized work.
 
-The component uses four layers:
+## Layering Model
 
-1. Filtered target content: animated rows, dashed lines, dots, and soft color fields that show displacement clearly.
-2. Glass surface: translucent fill, backdrop blur, saturation, and subtle tint.
-3. Rim and specular overlays: inner border, edge shadows, and highlight gradients that make the lens read as thick glass.
-4. Stable foreground controls: readable buttons, tabs, sliders, toggles, and media controls that are not distorted.
+The wrapper renders two copies of the content:
 
-The key UX rule is that interaction belongs in the stable foreground layer. The refracted layer is there to show optical movement and depth, not to make labels or controls harder to use.
+1. Base content: normal DOM that receives pointer, keyboard, and form interactions.
+2. Lens overlay: pointer-transparent visual copy clipped to the lens shape.
 
-### 4. Current Demo Interaction Model
+The overlay translates its copy by the negative lens offset, so the content inside the lens lines up with the same local region underneath. The real interactive controls are never distorted or made harder to click.
+
+Additional visual layers add:
+
+- subtle tint,
+- glass rim,
+- inner shadow,
+- edge glow,
+- chroma fringe,
+- rounded lens clipping.
+
+## Current Demo Interaction Model
 
 `src/pages/AaveSvgPage.tsx` demonstrates the technique with:
 
-- A large glass console with clickable navigation pills, market buttons, a protected-mode toggle, a refraction-strength slider, and primary/secondary actions.
-- Compact glass controls for navigation pills, video-style playback/progress/volume controls, and button states.
-- Explanatory panels describing render scope, map lifecycle, and appropriate use cases.
+- a large moving lens over a finance-style product surface,
+- native tabs and liquidity slider underneath the refracted overlay,
+- standalone toggle, slider, segmented-control, and media-control demos,
+- implementation notes that explain map channels, layering, and render scope.
 
-The refraction slider changes the `scale` passed to `feDisplacementMap`. This updates filter strength without regenerating the cached displacement map.
+The large lens slowly orbits by default and follows pointer movement when the user hovers or presses inside the showcase. Smaller controls position their lens from their own interaction state.
 
 ## Why It Is Fast
 
 - The filter is scoped to a component-sized region.
-- The displacement map is generated only when geometry changes.
-- Moving the component does not require map regeneration.
-- Updating ordinary React state, button states, or slider values does not require map regeneration.
+- The displacement map is generated only when geometry or tuning changes.
+- Moving the lens does not require map regeneration.
+- Ordinary React state changes do not require full-page capture.
 - There is no full-screen texture upload.
-- The SVG/DOM background animations use transform-based movement rather than animated `stroke-dashoffset`.
+- The real controls stay native, so the filtered overlay can be pointer-transparent.
 
 ## Tradeoffs
 
-- It refracts selected component content, not arbitrary pixels behind the component.
-- Browser SVG filter behavior can vary.
-- Complex filter stacks may still cost more than ordinary CSS transforms.
-- It is less physically complete than the WebGL shader approach, but usually more practical for UI controls.
+- It refracts a local copy of chosen component content, not arbitrary pixels behind the element.
+- It duplicates rendered markup for the visual layer, so heavy child components should be kept small.
+- SVG filter behavior and performance can vary by browser.
+- It is less physically complete than the WebGL shader route, but it is usually more practical for product UI.
 
 ## Best Use Cases
 

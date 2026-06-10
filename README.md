@@ -11,7 +11,7 @@ This repository implements:
 1. **WebGL / GLSL Shader**: Real-time pixel displacement over a live animated canvas using mathematical Signed Distance Functions (SDFs).
 2. **CSS + SVG Filters**: Hardware-accelerated refraction using `feDisplacementMap` and `backdrop-filter`.
 3. **DOM Snapshotting**: Full-page refraction over complex HTML layouts using `html2canvas` and WebGL.
-4. **Interactive SVG Displacement Maps**: Aave-style component-scoped glass using generated and cached PNG displacement maps for real UI controls.
+4. **Aave-Style SVG Displacement Maps**: Component-scoped moving lenses using generated and cached PNG maps, RGB channel splitting, specular masks, and native real UI controls underneath.
 
 The demo background is intentionally minimal: animated dots, lines, and rings move behind the glass so refraction is easy to see without the UI competing with a busy photo.
 
@@ -53,7 +53,7 @@ If you are working with an AI coding assistant and want to implement these featu
 - **Tunable Parameters**: A unified control system for refraction, bevel depth, frost blur, chromatic aberration, Fresnel, and more.
 - **Animated Abstract Backgrounds**: Minimal moving dots, lines, and rings that make refraction visible without overpowering the UI.
 - **Smooth WebGL Demo Layout**: Labels are anchored to their glass lenses, and the live texture path avoids repeated GPU texture allocation for same-size frames.
-- **Interactive Aave-Style SVG Map Glass**: Component-sized filters with cached displacement maps, stable foreground controls, navigation pills, sliders, action buttons, media controls, and explanatory tradeoff panels.
+- **Interactive Aave-Style SVG Map Glass**: Component-sized moving lenses with cached displacement maps, chromatic aberration, edge/specular masks, native tabs, sliders, toggles, media controls, and explanatory tradeoff panels.
 
 ## Getting Started
 

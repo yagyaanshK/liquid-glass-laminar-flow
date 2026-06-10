@@ -75,7 +75,7 @@ Used by: **liquidGL (NaughtyDuk)**, **@ybouane/liquidglass**, **liquid-glass-stu
 **Pros:** True pixel displacement, works cross-browser, dynamic content support
 **Cons:** Requires DOM snapshot (expensive), WebGL context limits (~16 per page)
 
-### Approach A2: Interactive SVG Displacement Map Glass
+### Approach A2: Aave-Style Moving SVG Displacement Map Lens
 
 > Read the deep dive:
 > - [SVG Displacement Map Glass](./implementation_details_svg_map.md)
@@ -83,15 +83,15 @@ Used by: **liquidGL (NaughtyDuk)**, **@ybouane/liquidglass**, **liquid-glass-stu
 Inspired by: **Aave Design**
 
 **How it works:**
-1. Generate a small PNG displacement map for each glass component's size and radius
-2. Store x/y offsets in the map's red and green channels
-3. Feed that map into `feDisplacementMap`
-4. Filter a deliberate component target layer rather than sampling the whole page backdrop
-5. Keep readable buttons, tabs, sliders, and labels in a stable foreground layer
-6. Cache maps by geometry so movement and interaction state changes do not trigger regeneration
+1. Generate a small PNG displacement map for each lens size, radius, and optical tuning
+2. Store x/y offsets in the map's red and green channels, with edge/specular intensity in blue
+3. Feed that map into an SVG filter chain with blur, displacement, RGB split, and specular compositing
+4. Render normal native controls once, then render a clipped pointer-transparent refracted copy above them
+5. Translate the copied content so the lens samples the matching local region underneath
+6. Cache maps by geometry and tuning so lens movement and interaction state changes do not trigger regeneration
 
-**Pros:** Very fast for controls/cards, no full-screen texture upload, component-scoped, practical for production UI, keeps interaction readable
-**Cons:** Refracts selected component content rather than arbitrary page pixels; SVG filter behavior varies by browser
+**Pros:** Very fast for controls/cards, no full-screen texture upload, component-scoped, practical for production UI, keeps interaction native and readable
+**Cons:** Refracts selected component content rather than arbitrary page pixels; duplicates visual markup inside the lens; SVG filter behavior varies by browser
 
 ### Approach B: CSS + SVG Displacement Maps
 
@@ -388,7 +388,7 @@ import { LiquidGlass } from 'https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/d
 - `BackgroundCanvas` pre-renders the static dark ambient layer on resize and redraws only animated flow elements per frame.
 - `LiquidGlassEngine` uses `texImage2D` only when texture dimensions change, then uses `texSubImage2D` for same-size live updates.
 - WebGL shape labels are nested inside the same DOM elements registered as lenses so scrolling keeps labels and refracted shapes aligned.
-- The SVG map route caches generated PNG displacement maps by component geometry and demonstrates real UI controls in a stable foreground layer.
+- The SVG map route caches generated PNG displacement maps by lens geometry/tuning, encodes dome normals in RG and specular masks in B, and uses a clipped moving copy so native controls remain interactive underneath the refracted lens.
 
 ### From kube.io (CSS/SVG approach):
 > "WebGL comes with drawbacks: shaders can't directly manipulate the DOM render. To make refraction work, you'd have to re-render everything into a canvas—which isn't really 'the web' anymore."

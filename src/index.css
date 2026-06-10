@@ -1466,6 +1466,545 @@ a {
   100% { transform: translate3d(24px, 0, 0); }
 }
 
+/* Actual Aave-style moving lens implementation */
+.aave-lens-root {
+  position: relative;
+  isolation: isolate;
+}
+
+.aave-lens-base {
+  position: relative;
+  z-index: 1;
+}
+
+.aave-lens-defs {
+  position: absolute;
+  pointer-events: none;
+}
+
+.aave-lens {
+  position: absolute;
+  z-index: 3;
+  left: var(--lens-x);
+  top: var(--lens-y);
+  width: var(--lens-w);
+  height: var(--lens-h);
+  border-radius: var(--lens-r);
+  transform: translate3d(-50%, -50%, 0);
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.08) 42%, rgba(255, 255, 255, 0.18)),
+    rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(255, 255, 255, 0.38),
+    inset 0 1px 1px rgba(255, 255, 255, 0.85),
+    inset 0 -14px 28px rgba(0, 0, 0, 0.18);
+  will-change: transform;
+}
+
+.aave-lens-refracted,
+.aave-lens-source-copy,
+.aave-lens-tint,
+.aave-lens-rim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.aave-lens-refracted {
+  z-index: 1;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+
+.aave-lens-source-copy {
+  inset: auto;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  transform-origin: top left;
+}
+
+.aave-lens-tint {
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.46), transparent 24%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.02) 44%, rgba(99, 220, 180, 0.08));
+  mix-blend-mode: screen;
+}
+
+.aave-lens-rim {
+  z-index: 3;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 10px 12px 18px rgba(255, 255, 255, 0.2),
+    inset -12px -16px 24px rgba(0, 0, 0, 0.24);
+}
+
+.aave2-page {
+  position: relative;
+  justify-content: flex-start;
+  padding: 6rem 1.5rem 6.5rem;
+  gap: 2rem;
+  color: #fff;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(62, 207, 142, 0.08), transparent 34%),
+    radial-gradient(circle at 74% 64%, rgba(122, 168, 255, 0.08), transparent 36%),
+    linear-gradient(135deg, rgba(5, 16, 18, 0.76), rgba(6, 9, 15, 0.8));
+}
+
+.aave2-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+.aave2-hero {
+  width: min(100%, 1180px);
+  display: grid;
+  grid-template-columns: minmax(300px, 0.78fr) minmax(560px, 1.22fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 5rem);
+}
+
+.aave2-copy {
+  display: grid;
+  gap: 1rem;
+}
+
+.aave2-copy > span {
+  width: fit-content;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(185, 215, 255, 0.12);
+  border: 1px solid rgba(185, 215, 255, 0.24);
+  color: #b9d7ff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.aave2-copy h1 {
+  max-width: 560px;
+  font-size: clamp(2.3rem, 5.5vw, 5rem);
+  line-height: 0.97;
+  font-weight: 680;
+  letter-spacing: 0;
+}
+
+.aave2-copy p {
+  max-width: 570px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 1rem;
+  line-height: 1.78;
+}
+
+.aave2-showcase {
+  justify-self: end;
+  width: min(100%, 680px);
+  border-radius: 34px;
+}
+
+.aave2-showcase-hit {
+  position: relative;
+  min-height: 560px;
+  cursor: crosshair;
+}
+
+.aave2-product-surface {
+  position: relative;
+  min-height: 560px;
+  overflow: hidden;
+  border-radius: 34px;
+  padding: 1.2rem;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 142, 112, 0.42), transparent 28%),
+    radial-gradient(circle at 88% 22%, rgba(62, 207, 142, 0.32), transparent 28%),
+    radial-gradient(circle at 62% 86%, rgba(122, 168, 255, 0.34), transparent 30%),
+    linear-gradient(145deg, #f8faf7, #dfe6df 40%, #aebed2);
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.38),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.58);
+  color: #071012;
+}
+
+.aave2-surface-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.8;
+}
+
+.aave2-surface-bg span {
+  position: absolute;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+
+.aave2-surface-bg span:nth-child(1) {
+  width: 260px;
+  height: 260px;
+  left: -78px;
+  top: 70px;
+  color: rgba(255, 112, 82, 0.42);
+}
+
+.aave2-surface-bg span:nth-child(2) {
+  width: 220px;
+  height: 220px;
+  right: 30px;
+  top: -60px;
+  color: rgba(62, 207, 142, 0.42);
+}
+
+.aave2-surface-bg span:nth-child(3) {
+  width: 320px;
+  height: 320px;
+  right: -100px;
+  bottom: -110px;
+  color: rgba(92, 134, 255, 0.35);
+}
+
+.aave2-card-header,
+.aave2-tabs,
+.aave2-chart,
+.aave2-market-grid,
+.aave2-hero-controls {
+  position: relative;
+  z-index: 1;
+}
+
+.aave2-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem;
+}
+
+.aave2-card-header div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.aave2-card-header span,
+.aave2-liquidity-control span,
+.aave2-notes span {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: rgba(7, 16, 18, 0.52);
+}
+
+.aave2-card-header strong {
+  font-size: clamp(2.7rem, 6vw, 4.6rem);
+  line-height: 0.92;
+  color: #071012;
+}
+
+.aave2-card-header button,
+.aave2-tabs button,
+.aave2-market-card,
+.aave2-switch,
+.aave2-segmented button,
+.aave2-video button {
+  border: 1px solid rgba(7, 16, 18, 0.08);
+  background: rgba(255, 255, 255, 0.52);
+  color: #071012;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.aave2-card-header button:hover,
+.aave2-tabs button:hover,
+.aave2-market-card:hover,
+.aave2-switch:hover,
+.aave2-segmented button:hover,
+.aave2-video button:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(7, 16, 18, 0.14);
+}
+
+.aave2-card-header button {
+  min-height: 38px;
+  border-radius: 999px;
+  padding: 0 1rem;
+  font-weight: 800;
+}
+
+.aave2-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0.85rem 0.7rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  background: rgba(7, 16, 18, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.26);
+}
+
+.aave2-tabs button {
+  min-height: 38px;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.aave2-tabs button.active {
+  background: #071012;
+  color: #fff;
+}
+
+.aave2-chart {
+  height: 150px;
+  margin: 1.1rem 0.7rem 0.4rem;
+  border-radius: 24px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+
+.aave2-chart svg {
+  width: 100%;
+  height: 100%;
+}
+
+.aave2-chart-fill {
+  fill: rgba(62, 207, 142, 0.22);
+}
+
+.aave2-chart-line {
+  fill: none;
+  stroke: #071012;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.aave2-chart-line.muted {
+  stroke: rgba(92, 134, 255, 0.46);
+  stroke-width: 2.5;
+  stroke-dasharray: 8 10;
+}
+
+.aave2-market-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 1rem 0.7rem 0;
+}
+
+.aave2-market-card {
+  min-width: 0;
+  min-height: 132px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-content: start;
+  gap: 0.35rem 0.5rem;
+  border-radius: 22px;
+  padding: 1rem;
+  text-align: left;
+}
+
+.aave2-market-card small,
+.aave2-market-card em {
+  grid-column: 1 / -1;
+  color: rgba(7, 16, 18, 0.56);
+  font-style: normal;
+}
+
+.aave2-market-card strong {
+  grid-column: 1 / -1;
+  margin-top: 0.45rem;
+  font-size: 1.12rem;
+}
+
+.aave2-dot {
+  width: 0.58rem;
+  height: 0.58rem;
+  margin-top: 0.25rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 18px currentColor;
+}
+
+.aave2-dot.mint { color: #22a872; }
+.aave2-dot.blue { color: #4a74d8; }
+.aave2-dot.coral { color: #d86146; }
+
+.aave2-hero-controls {
+  position: absolute;
+  left: 1.2rem;
+  right: 1.2rem;
+  bottom: 1.2rem;
+  display: grid;
+  grid-template-columns: 1fr minmax(190px, 0.6fr);
+  gap: 0.8rem;
+}
+
+.aave2-liquidity-control {
+  display: grid;
+  align-content: center;
+  gap: 0.55rem;
+  padding: 0 1rem;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
+}
+
+.aave2-liquidity-control input,
+.aave2-slider input,
+.aave2-video input {
+  width: 100%;
+  accent-color: #071012;
+}
+
+.aave2-component-family {
+  width: min(100%, 1080px);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.aave2-mini-demo,
+.aave2-video-demo {
+  min-height: 118px;
+  border-radius: 26px;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(247, 251, 255, 0.9), rgba(185, 215, 255, 0.35)),
+    rgba(255, 255, 255, 0.54);
+  color: #071012;
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.44);
+}
+
+.aave2-switch,
+.aave2-slider,
+.aave2-segmented,
+.aave2-video {
+  position: relative;
+  min-height: 118px;
+  display: grid;
+  align-content: center;
+  gap: 0.65rem;
+  padding: 1rem;
+}
+
+.aave2-switch {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background:
+    linear-gradient(90deg, rgba(7, 16, 18, 0.12), rgba(62, 207, 142, 0.22)),
+    rgba(255, 255, 255, 0.36);
+}
+
+.aave2-switch span,
+.aave2-slider span {
+  display: flex;
+  justify-content: space-between;
+  color: rgba(7, 16, 18, 0.56);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.aave2-switch strong {
+  font-size: 1.25rem;
+}
+
+.aave2-segmented {
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.9rem;
+}
+
+.aave2-segmented button {
+  min-height: 38px;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.aave2-video {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.aave2-video button {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  font-weight: 800;
+}
+
+.aave2-video label {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(7, 16, 18, 0.14);
+  overflow: hidden;
+}
+
+.aave2-video label span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff7052, #e8a838, #3ecf8e);
+}
+
+.aave2-video label input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.aave2-notes {
+  width: min(100%, 1080px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.aave2-notes article {
+  padding: 1.15rem;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.56);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.aave2-notes span {
+  color: rgba(185, 215, 255, 0.72);
+}
+
+.aave2-notes strong {
+  display: block;
+  margin: 0.55rem 0 0.35rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.aave2-notes p {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════════════════════════════════════════ */
@@ -1477,6 +2016,20 @@ a {
   }
   .aave-hero {
     grid-template-columns: 1fr;
+  }
+  .aave2-hero {
+    grid-template-columns: 1fr;
+  }
+  .aave2-showcase {
+    justify-self: center;
+  }
+  .aave2-component-family {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 680px;
+  }
+  .aave2-notes {
+    grid-template-columns: 1fr;
+    max-width: 680px;
   }
   .aave-control-glass {
     justify-self: center;
@@ -1512,11 +2065,57 @@ a {
     padding-top: 5rem;
     gap: 1.4rem;
   }
+  .aave2-page {
+    padding-top: 5rem;
+    gap: 1.4rem;
+  }
   .aave-hero {
+    gap: 1.4rem;
+  }
+  .aave2-hero {
     gap: 1.4rem;
   }
   .aave-hero p {
     font-size: 0.92rem;
+  }
+  .aave2-copy p {
+    font-size: 0.92rem;
+  }
+  .aave2-showcase-hit,
+  .aave2-product-surface {
+    min-height: 678px;
+  }
+  .aave2-card-header {
+    display: grid;
+    justify-items: stretch;
+  }
+  .aave2-card-header button {
+    width: 100%;
+  }
+  .aave2-card-header strong {
+    font-size: 2.7rem;
+  }
+  .aave2-tabs,
+  .aave2-market-grid,
+  .aave2-hero-controls,
+  .aave2-component-family {
+    grid-template-columns: 1fr;
+  }
+  .aave2-hero-controls {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    margin: 1rem 1rem 0;
+  }
+  .aave2-chart {
+    height: 124px;
+  }
+  .aave2-market-card {
+    min-height: 112px;
+  }
+  .aave2-notes {
+    grid-template-columns: 1fr;
   }
   .aave-glass {
     height: auto;
@@ -1639,6 +2238,7 @@ a {
   .aave-target-dots span,
   .aave-panel-orbits span,
   .aave-panel-wave,
+  .aave-lens,
   .controls-burger,
   .controls-burger span,
   .controls-drawer {
