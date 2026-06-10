@@ -11,6 +11,7 @@ This repository implements:
 1. **WebGL / GLSL Shader**: Real-time pixel displacement over a live animated canvas using mathematical Signed Distance Functions (SDFs).
 2. **CSS + SVG Filters**: Hardware-accelerated refraction using `feDisplacementMap` and `backdrop-filter`.
 3. **DOM Snapshotting**: Full-page refraction over complex HTML layouts using `html2canvas` and WebGL.
+4. **SVG Displacement Maps**: Aave-style component-scoped glass using generated and cached PNG displacement maps.
 
 The demo background is intentionally minimal: animated dots, lines, and rings move behind the glass so refraction is easy to see without the UI competing with a busy photo.
 
@@ -42,6 +43,7 @@ If you are working with an AI coding assistant and want to implement these featu
 - **[WebGL Live Shader](./implementation_details_webgl.md)**: Best for high-performance apps, games, or full-viewport canvas backgrounds. Includes GLSL logic for refraction, chromatic aberration, and specular highlights.
 - **[CSS + SVG Filters](./implementation_details_css_svg.md)**: Best for lightweight, no-JS implementations. Explains the SVG filter chain and cross-browser fallbacks.
 - **[HTML2Canvas Snapshots](./implementation_details_html2canvas.md)**: Best for traditional web apps needing glass panels over complex text and layout elements.
+- **[SVG Displacement Map Glass](./implementation_details_svg_map.md)**: Best for production UI controls that need smooth component-scoped glass without a full-screen WebGL texture.
 
 ---
 
@@ -51,6 +53,7 @@ If you are working with an AI coding assistant and want to implement these featu
 - **Tunable Parameters**: A unified control system for refraction, bevel depth, frost blur, chromatic aberration, Fresnel, and more.
 - **Animated Abstract Backgrounds**: Minimal moving dots, lines, and rings that make refraction visible without overpowering the UI.
 - **Smooth WebGL Demo Layout**: Labels are anchored to their glass lenses, and the live texture path avoids repeated GPU texture allocation for same-size frames.
+- **Aave-Style SVG Map Glass**: Component-sized filters with cached displacement maps for fast controls and cards.
 
 ## Getting Started
 

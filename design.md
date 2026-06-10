@@ -75,6 +75,23 @@ Used by: **liquidGL (NaughtyDuk)**, **@ybouane/liquidglass**, **liquid-glass-stu
 **Pros:** True pixel displacement, works cross-browser, dynamic content support
 **Cons:** Requires DOM snapshot (expensive), WebGL context limits (~16 per page)
 
+### Approach A2: SVG Displacement Map Glass
+
+> Read the deep dive:
+> - [SVG Displacement Map Glass](./implementation_details_svg_map.md)
+
+Inspired by: **Aave Design**
+
+**How it works:**
+1. Generate a small PNG displacement map for each glass component's size and radius
+2. Store x/y offsets in the map's red and green channels
+3. Feed that map into `feDisplacementMap`
+4. Filter a deliberate component content layer rather than sampling the whole page backdrop
+5. Cache maps by geometry so movement does not trigger regeneration
+
+**Pros:** Very fast for controls/cards, no full-screen texture upload, component-scoped, practical for production UI
+**Cons:** Refracts selected component content rather than arbitrary page pixels; SVG filter behavior varies by browser
+
 ### Approach B: CSS + SVG Displacement Maps
 
 > 📖 **Read the deep dive:** 

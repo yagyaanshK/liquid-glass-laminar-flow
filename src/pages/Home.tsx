@@ -23,6 +23,13 @@ const APPROACHES = [
     tech: 'html2canvas • WebGL • GLSL',
     color: '#e8a838',
   },
+  {
+    path: '/svg-map',
+    title: 'SVG Map Glass',
+    desc: 'Aave-style component-scoped glass using generated displacement maps. Fast for controls because maps are cached per lens geometry.',
+    tech: 'SVG Filters • Cached PNG Map • DOM',
+    color: '#8f7bff',
+  },
 ];
 
 export default function Home() {
@@ -69,7 +76,8 @@ export default function Home() {
           <a href="https://github.com/naughtyduk/liquidGL" target="_blank" rel="noopener noreferrer">liquidGL</a>{' · '}
           <a href="https://github.com/ybouane/liquidglass" target="_blank" rel="noopener noreferrer">@ybouane/liquidglass</a>{' · '}
           <a href="https://github.com/iyinchao/liquid-glass-studio" target="_blank" rel="noopener noreferrer">liquid-glass-studio</a>{' · '}
-          <a href="https://kube.io/blog/liquid-glass-css-svg/" target="_blank" rel="noopener noreferrer">kube.io</a>
+          <a href="https://kube.io/blog/liquid-glass-css-svg/" target="_blank" rel="noopener noreferrer">kube.io</a>{' · '}
+          <a href="https://aave.com/design/building-glass-for-the-web" target="_blank" rel="noopener noreferrer">Aave Design</a>
         </p>
       </footer>
     </div>

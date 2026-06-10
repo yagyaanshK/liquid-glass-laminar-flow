@@ -3,6 +3,7 @@ import Home from './pages/Home';
 import WebGLPage from './pages/WebGLPage';
 import CssSvgPage from './pages/CssSvgPage';
 import Html2CanvasPage from './pages/Html2CanvasPage';
+import AaveSvgPage from './pages/AaveSvgPage';
 import './index.css';
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/webgl" element={<WebGLPage />} />
         <Route path="/css-svg" element={<CssSvgPage />} />
         <Route path="/html2canvas" element={<Html2CanvasPage />} />
+        <Route path="/svg-map" element={<AaveSvgPage />} />
       </Routes>
     </HashRouter>
   );
