@@ -391,6 +391,7 @@ import { LiquidGlass } from 'https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/d
 - WebGL shape labels are nested inside the same DOM elements registered as lenses so scrolling keeps labels and refracted shapes aligned.
 - WebGL includes a tunable Gravity Lens Field mode adapted from `s0xDk/ghostty-blackhole`, using a softened `theta^2 / r` radial field plus far-field damping and SDF boundary fade.
 - The SVG map route caches generated PNG displacement maps by lens geometry/tuning, encodes dome normals in RG and specular masks in B, and uses a clipped moving copy so native controls remain interactive underneath the refracted lens.
+- The SVG map route now follows Aave's dark-theme control treatment: primary actions invert to a light surface on the dark flow-field background, secondary controls stay on subdued dark token surfaces, and small controls bend fill/highlight layers rather than sacrificing label readability.
 
 ### From kube.io (CSS/SVG approach):
 > "WebGL comes with drawbacks: shaders can't directly manipulate the DOM render. To make refraction work, you'd have to re-render everything into a canvas—which isn't really 'the web' anymore."
@@ -453,7 +454,7 @@ import { LiquidGlass } from 'https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/d
 
 ---
 
-*Last updated: June 11, 2026*
+*Last updated: June 12, 2026*
 
 
 https://dribbble.com/shots/26149756-Liquid-Glass-macOS-Tahoe-26

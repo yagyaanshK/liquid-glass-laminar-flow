@@ -14,6 +14,7 @@ The following audit findings have since been addressed:
 - The WebGL shader now includes a Gravity Lens Field mode adapted from black-hole screen-space lensing, with tunable strength, falloff, and softness controls.
 - The landing page now presents four approaches with practical "best for" guidance and direct entry points to the interactive SVG-map and WebGL routes.
 - The fourth SVG-map route has been rebuilt as a clean-room Aave-style moving lens with cached dome displacement maps, RGB chroma splitting, a blue-channel specular/edge mask, native controls underneath, refracted local-content copies above, and premium interactive tabs, sliders, toggles, media controls, and explanatory panels.
+- The fourth SVG-map route now matches Aave's dark-mode control treatment more closely: primary actions invert to a light surface, inactive controls use subdued dark surfaces, selected pills stay legible, and the route background remains opaque dark across long mobile scrolls.
 
 Historical findings below may refer to the pre-refactor photo background, the earlier WebGL label layout, or the pre-redesign static SVG-map page.
 

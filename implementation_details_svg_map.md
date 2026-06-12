@@ -85,6 +85,19 @@ Additional visual layers add:
 
 The large lens slowly orbits by default and follows pointer movement when the user hovers or presses inside the showcase. Smaller controls position their lens from their own interaction state.
 
+## Dark Theme Treatment
+
+Aave's public implementation uses theme tokens on `html.light` and `html.dark`. Its primary buttons intentionally invert against the active theme: light mode uses a dark primary button, while dark mode uses a light primary button. Secondary and tertiary controls stay on tokenized local surfaces.
+
+The SVG-map route mirrors that behavior for this repository's dark flow-field background:
+
+- `.aave2-page` defines route-local dark background, surface, text, primary, and inverse action tokens.
+- Primary actions such as `Connect`, the selected market action, and the video play/pause button use the inverse light surface with dark text.
+- Inactive tabs, cards, switches, segmented buttons, and control rails use subdued dark translucent surfaces.
+- The route background has an opaque dark base so long mobile pages and stitched screenshots do not expose the global light body color.
+
+For small controls, the most important Aave detail is not just the color palette. The glass should bend a fill, highlight, or selected-pill layer while labels remain readable. Switches, sliders, and segmented controls therefore keep the native control text stable and use the lens as a moving highlight over the chosen control region.
+
 ## Why It Is Fast
 
 - The filter is scoped to a component-sized region.

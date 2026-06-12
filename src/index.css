@@ -1582,6 +1582,18 @@ a {
 }
 
 .aave2-page {
+  --aave2-bg-max: #06090b;
+  --aave2-bg-1: rgba(13, 18, 22, 0.92);
+  --aave2-bg-2: rgba(255, 255, 255, 0.075);
+  --aave2-bg-3: rgba(255, 255, 255, 0.12);
+  --aave2-bg-4: rgba(255, 255, 255, 0.18);
+  --aave2-fg-1: rgba(255, 255, 255, 0.94);
+  --aave2-fg-2: rgba(255, 255, 255, 0.76);
+  --aave2-fg-3: rgba(255, 255, 255, 0.56);
+  --aave2-primary: #9896ff;
+  --aave2-primary-soft: rgba(152, 150, 255, 0.2);
+  --aave2-inverse-bg: #f5f7f2;
+  --aave2-inverse-fg: #071012;
   position: relative;
   justify-content: flex-start;
   padding: 6rem 1.5rem 6.5rem;
@@ -1591,7 +1603,7 @@ a {
   background:
     radial-gradient(circle at 16% 18%, rgba(62, 207, 142, 0.08), transparent 34%),
     radial-gradient(circle at 74% 64%, rgba(122, 168, 255, 0.08), transparent 36%),
-    linear-gradient(135deg, rgba(5, 16, 18, 0.76), rgba(6, 9, 15, 0.8));
+    linear-gradient(135deg, #061012, #070a10 54%, #06090b);
 }
 
 .aave2-page > * {
@@ -1659,14 +1671,14 @@ a {
   border-radius: 34px;
   padding: 1.2rem;
   background:
-    radial-gradient(circle at 18% 12%, rgba(255, 142, 112, 0.42), transparent 28%),
-    radial-gradient(circle at 88% 22%, rgba(62, 207, 142, 0.32), transparent 28%),
-    radial-gradient(circle at 62% 86%, rgba(122, 168, 255, 0.34), transparent 30%),
-    linear-gradient(145deg, #f8faf7, #dfe6df 40%, #aebed2);
+    radial-gradient(circle at 18% 12%, rgba(255, 112, 82, 0.2), transparent 30%),
+    radial-gradient(circle at 86% 18%, rgba(152, 150, 255, 0.26), transparent 30%),
+    radial-gradient(circle at 62% 88%, rgba(62, 207, 142, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(16, 22, 26, 0.96), rgba(8, 11, 15, 0.94) 45%, rgba(16, 20, 29, 0.96));
   box-shadow:
-    0 28px 80px rgba(0, 0, 0, 0.38),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.58);
-  color: #071012;
+    0 28px 80px rgba(0, 0, 0, 0.48),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  color: var(--aave2-fg-1);
 }
 
 .aave2-surface-bg {
@@ -1735,46 +1747,57 @@ a {
   font-weight: 800;
   letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: rgba(7, 16, 18, 0.52);
+  color: var(--aave2-fg-3);
 }
 
 .aave2-card-header strong {
   font-size: clamp(2.7rem, 6vw, 4.6rem);
   line-height: 0.92;
-  color: #071012;
+  color: var(--aave2-fg-1);
 }
 
-.aave2-card-header button,
 .aave2-tabs button,
 .aave2-market-card,
 .aave2-switch,
 .aave2-segmented button,
 .aave2-video button {
-  border: 1px solid rgba(7, 16, 18, 0.08);
-  background: rgba(255, 255, 255, 0.52);
-  color: #071012;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--aave2-bg-2);
+  color: var(--aave2-fg-2);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   cursor: pointer;
   transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
 }
 
-.aave2-card-header button:hover,
 .aave2-tabs button:hover,
 .aave2-market-card:hover,
 .aave2-switch:hover,
 .aave2-segmented button:hover,
 .aave2-video button:hover {
   transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.72);
-  border-color: rgba(7, 16, 18, 0.14);
+  background: var(--aave2-bg-3);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--aave2-fg-1);
 }
 
 .aave2-card-header button {
+  border: 0;
+  background: var(--aave2-inverse-bg);
+  color: var(--aave2-inverse-fg);
   min-height: 38px;
   border-radius: 999px;
   padding: 0 1rem;
   font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.aave2-card-header button:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
 }
 
 .aave2-tabs {
@@ -1784,8 +1807,8 @@ a {
   margin: 0.85rem 0.7rem;
   padding: 0.35rem;
   border-radius: 999px;
-  background: rgba(7, 16, 18, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .aave2-tabs button {
@@ -1795,8 +1818,8 @@ a {
 }
 
 .aave2-tabs button.active {
-  background: #071012;
-  color: #fff;
+  background: var(--aave2-inverse-bg);
+  color: var(--aave2-inverse-fg);
 }
 
 .aave2-chart {
@@ -1804,8 +1827,8 @@ a {
   margin: 1.1rem 0.7rem 0.4rem;
   border-radius: 24px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.28);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .aave2-chart svg {
@@ -1814,18 +1837,18 @@ a {
 }
 
 .aave2-chart-fill {
-  fill: rgba(62, 207, 142, 0.22);
+  fill: rgba(62, 207, 142, 0.18);
 }
 
 .aave2-chart-line {
   fill: none;
-  stroke: #071012;
+  stroke: var(--aave2-fg-1);
   stroke-width: 5;
   stroke-linecap: round;
 }
 
 .aave2-chart-line.muted {
-  stroke: rgba(92, 134, 255, 0.46);
+  stroke: rgba(152, 150, 255, 0.58);
   stroke-width: 2.5;
   stroke-dasharray: 8 10;
 }
@@ -1852,7 +1875,7 @@ a {
 .aave2-market-card small,
 .aave2-market-card em {
   grid-column: 1 / -1;
-  color: rgba(7, 16, 18, 0.56);
+  color: var(--aave2-fg-3);
   font-style: normal;
 }
 
@@ -1872,8 +1895,8 @@ a {
 }
 
 .aave2-dot.mint { color: #22a872; }
-.aave2-dot.blue { color: #4a74d8; }
-.aave2-dot.coral { color: #d86146; }
+.aave2-dot.blue { color: #9896ff; }
+.aave2-dot.coral { color: #ff7052; }
 
 .aave2-hero-controls {
   position: absolute;
@@ -1891,15 +1914,15 @@ a {
   gap: 0.55rem;
   padding: 0 1rem;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.42);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .aave2-liquidity-control input,
 .aave2-slider input,
 .aave2-video input {
   width: 100%;
-  accent-color: #071012;
+  accent-color: var(--aave2-inverse-bg);
 }
 
 .aave2-component-family {
@@ -1915,12 +1938,13 @@ a {
   border-radius: 26px;
   overflow: hidden;
   background:
-    linear-gradient(135deg, rgba(247, 251, 255, 0.9), rgba(185, 215, 255, 0.35)),
-    rgba(255, 255, 255, 0.54);
-  color: #071012;
+    radial-gradient(circle at 78% 22%, rgba(152, 150, 255, 0.18), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.035)),
+    rgba(5, 8, 10, 0.86);
+  color: var(--aave2-fg-1);
   box-shadow:
-    0 18px 50px rgba(0, 0, 0, 0.24),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.44);
+    0 18px 50px rgba(0, 0, 0, 0.34),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .aave2-switch,
@@ -1940,15 +1964,15 @@ a {
   text-align: left;
   border: 0;
   background:
-    linear-gradient(90deg, rgba(7, 16, 18, 0.12), rgba(62, 207, 142, 0.22)),
-    rgba(255, 255, 255, 0.36);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(152, 150, 255, 0.18)),
+    rgba(255, 255, 255, 0.04);
 }
 
 .aave2-switch span,
 .aave2-slider span {
   display: flex;
   justify-content: space-between;
-  color: rgba(7, 16, 18, 0.56);
+  color: var(--aave2-fg-3);
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1972,6 +1996,11 @@ a {
   font-weight: 800;
 }
 
+.aave2-segmented button[aria-selected="true"] {
+  color: var(--aave2-fg-1);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .aave2-video {
   grid-template-columns: auto 1fr;
   align-items: center;
@@ -1983,13 +2012,15 @@ a {
   height: 64px;
   border-radius: 50%;
   font-weight: 800;
+  background: var(--aave2-inverse-bg);
+  color: var(--aave2-inverse-fg);
 }
 
 .aave2-video label {
   position: relative;
   height: 10px;
   border-radius: 999px;
-  background: rgba(7, 16, 18, 0.14);
+  background: rgba(255, 255, 255, 0.14);
   overflow: hidden;
 }
 

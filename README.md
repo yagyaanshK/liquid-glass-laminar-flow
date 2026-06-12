@@ -53,7 +53,7 @@ If you are working with an AI coding assistant and want to implement these featu
 - **Tunable Parameters**: A unified control system for refraction, bevel depth, frost blur, chromatic aberration, Fresnel, and more.
 - **Animated Abstract Backgrounds**: Minimal moving dots, lines, and rings that make refraction visible without overpowering the UI.
 - **Smooth WebGL Demo Layout**: Labels are anchored to their glass lenses, the live texture path avoids repeated GPU texture allocation for same-size frames, and the shader includes a tunable gravity-lens field adapted from black-hole screen-space lensing.
-- **Interactive Aave-Style SVG Map Glass**: Component-sized moving lenses with cached displacement maps, chromatic aberration, edge/specular masks, native tabs, sliders, toggles, media controls, and explanatory tradeoff panels.
+- **Interactive Aave-Style SVG Map Glass**: Component-sized moving lenses with cached displacement maps, chromatic aberration, edge/specular masks, dark-theme-aware primary/secondary controls, native tabs, sliders, toggles, media controls, and explanatory tradeoff panels.
 
 ## Getting Started
 
