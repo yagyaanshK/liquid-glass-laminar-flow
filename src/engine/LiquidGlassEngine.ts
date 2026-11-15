@@ -53,11 +53,31 @@ const BLIT_FRAGMENT_SHADER = `
   }
 `;
 
+// One step of the frost pyramid: halve the resolution with a 5-tap tent
+// (the "dual filter" downsample). Each level is a smooth, wider blur of the
+// one before it, so a few taps into a coarse level stand in for many taps
+// into the full-resolution source.
+const DOWNSAMPLE_FRAGMENT_SHADER = `
+  precision mediump float;
+  varying vec2 v_uv;
+  uniform sampler2D u_texture;
+  uniform vec2 u_halfPixel;   // half a destination texel = one source texel, in UV
+  void main() {
+    vec4 sum = texture2D(u_texture, v_uv) * 4.0;
+    sum += texture2D(u_texture, v_uv - u_halfPixel);
+    sum += texture2D(u_texture, v_uv + u_halfPixel);
+    sum += texture2D(u_texture, v_uv + vec2(u_halfPixel.x, -u_halfPixel.y));
+    sum += texture2D(u_texture, v_uv - vec2(u_halfPixel.x, -u_halfPixel.y));
+    gl_FragColor = sum / 8.0;
+  }
+`;
+
 const FRAGMENT_SHADER = `
   precision highp float;
   varying vec2 v_uv;
 
   #define MAX_SHAPES ${MAX_SHAPES}
+  #define FROST_TAPS 16
 
   uniform sampler2D u_texture;
   uniform vec2 u_rectSize;         // draw rect size in device px
@@ -74,7 +94,11 @@ const FRAGMENT_SHADER = `
   uniform float u_bevelPx;         // bevel width in px (already clamped to the inradius)
   uniform float u_refraction;      // broad edge bend, fraction of the shorter side
   uniform float u_bevelDepth;      // extra bend at the rim, fraction of the shorter side
-  uniform float u_frost;           // blur radius
+  uniform float u_frost;           // 0 = clear glass; > 0 = frosted
+  uniform sampler2D u_blurA;       // frost pyramid level just below the wanted blur
+  uniform sampler2D u_blurB;       // the next coarser level
+  uniform float u_blurMix;         // blend between the two levels
+  uniform float u_frostRadius;     // radius of the tap disk, in source texels
   uniform float u_chromAberration; // RGB split
   uniform float u_fresnel;         // 0–2
   uniform float u_edgeHighlight;   // 0–1
@@ -213,6 +237,14 @@ const FRAGMENT_SHADER = `
     return box;
   }
 
+  // One frost tap: the pre-blurred backdrop, blended between two pyramid levels
+  // so the blur grows smoothly instead of stepping from level to level.
+  vec4 frostTap(vec2 uv) {
+    vec4 tap = texture2D(u_blurA, uv);
+    if (u_blurMix > 0.0) tap = mix(tap, texture2D(u_blurB, uv), u_blurMix);
+    return tap;
+  }
+
   void main() {
     // Everything works in device px with y up, relative to the draw rect centre
     // (the SDF space). Offsets are converted to texture UV (y down) when sampling.
@@ -284,34 +316,31 @@ const FRAGMENT_SHADER = `
     vec2 caUv = vec2(caDir.x, -caDir.y) * caPx * pxToUv;
     bool split = u_chromAberration > 0.0;
 
-    // Sample with optional frost (golden angle spiral disk blur)
+    // Sample with optional frost. The backdrop has already been blurred into
+    // a pyramid, so a small golden-angle disk of taps into the right level
+    // gives the full blur at a fixed cost, whatever the radius.
     vec4 refrCol;
     if (u_frost > 0.0) {
-      float radius = u_frost * 6.0;
       const float GOLDEN_ANGLE = 2.39996323; // ~137.5 degrees
-
-      // Sample count scales with blur radius: 32 / 64 / 96 / 128
-      int samples = 128;
-      if (u_frost <= 1.0) samples = 32;
-      else if (u_frost <= 2.5) samples = 64;
-      else if (u_frost <= 4.0) samples = 96;
-      float fSamples = float(samples);
-
       vec4 sum = vec4(0.0);
-      for (int i = 0; i < 128; i++) {
-        if (i >= samples) break;
+      vec2 fringe = vec2(0.0);
+      for (int i = 0; i < FROST_TAPS; i++) {
         float fi = float(i);
         float angle = fi * GOLDEN_ANGLE;
-        float dist = sqrt((fi + 0.5) / fSamples) * radius;
+        float dist = sqrt((fi + 0.5) / float(FROST_TAPS)) * u_frostRadius;
         vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
-        vec4 tap = texture2D(u_texture, refracted + off);
-        if (split) {
-          tap.r = texture2D(u_texture, refracted + caUv + off).r;
-          tap.b = texture2D(u_texture, refracted - caUv + off).b;
+        sum += frostTap(refracted + off);
+        // Dispersion under frost is soft, so red and blue use every other tap
+        if (split && mod(fi, 2.0) < 0.5) {
+          fringe.x += frostTap(refracted + caUv + off).r;
+          fringe.y += frostTap(refracted - caUv + off).b;
         }
-        sum += tap;
       }
-      refrCol = sum / fSamples;
+      refrCol = sum / float(FROST_TAPS);
+      if (split) {
+        refrCol.r = fringe.x / (float(FROST_TAPS) * 0.5);
+        refrCol.b = fringe.y / (float(FROST_TAPS) * 0.5);
+      }
     } else {
       refrCol  = texture2D(u_texture, refracted);
       refrCol += texture2D(u_texture, refracted + vec2( texel.x, 0.0));
@@ -553,7 +582,17 @@ interface BackdropState {
   capturing: boolean;
   recaptureQueued: boolean;
   timer: number;
+  clippers: HTMLElement[];   // ancestors whose overflow clips this element
+  clippersAge: number;       // frames since `clippers` was last rebuilt
   detach: () => void;
+}
+
+/** One level of the frost pyramid */
+interface BlurLevel {
+  texture: WebGLTexture;
+  fbo: WebGLFramebuffer;
+  width: number;
+  height: number;
 }
 
 /** Per-lens animation and measurement state */
@@ -597,6 +636,16 @@ const LIGHT_GLASS: [number, number, number] = [0.97, 0.98, 1.0];
 const METRICS_CELLS = 8;
 const METRICS_MAX_LENSES = 16;
 const METRICS_INTERVAL = 6;
+
+// Frost. One unit of `frost` is 6 source texels of blur radius. The pyramid
+// level is chosen so its texels are about a third of that radius: fine enough
+// that 16 taps overlap, coarse enough that they cover the disk.
+const FROST_RADIUS_PER_UNIT = 6;
+const FROST_LEVEL_SCALE = 0.35;
+const FROST_MAX_LEVELS = 5;
+// The pyramid's own blur adds to the tap disk, so the disk shrinks to keep the
+// total close to a plain disk of the requested radius.
+const FROST_DISK_COMPENSATION = 0.87;
 
 // Press spring: underdamped so the glass overshoots slightly and settles
 const PRESS_STIFFNESS = 320;
@@ -677,6 +726,10 @@ export class LiquidGlassEngine {
   private program: WebGLProgram;
   private metricsProgram: WebGLProgram;
   private blitProgram: WebGLProgram;
+  private downsampleProgram: WebGLProgram;
+  private blurLevels: BlurLevel[] = [];
+  private blurLevelCount = 0;   // levels valid for the current frame
+  private frameSource: WebGLTexture | null = null;   // what the glass refracts this frame
   private texture: WebGLTexture;
   private sceneTexture: WebGLTexture;
   private sceneFbo: WebGLFramebuffer;
@@ -693,6 +746,7 @@ export class LiquidGlassEngine {
   private uniforms = new Map<string, WebGLUniformLocation | null>();
   private metricsUniforms = new Map<string, WebGLUniformLocation | null>();
   private blitUniforms = new Map<string, WebGLUniformLocation | null>();
+  private downsampleUniforms = new Map<string, WebGLUniformLocation | null>();
   private shapeBoxes = new Float32Array(MAX_SHAPES * 4);
   private shapeParams = new Float32Array(MAX_SHAPES * 4);
   private textureWidth = 0;
@@ -741,10 +795,12 @@ export class LiquidGlassEngine {
     const prog = createProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER);
     const metricsProg = createProgram(gl, VERTEX_SHADER, METRICS_FRAGMENT_SHADER);
     const blitProg = createProgram(gl, BLIT_VERTEX_SHADER, BLIT_FRAGMENT_SHADER);
-    if (!prog || !metricsProg || !blitProg) throw new Error('Shader compilation failed');
+    const downsampleProg = createProgram(gl, VERTEX_SHADER, DOWNSAMPLE_FRAGMENT_SHADER);
+    if (!prog || !metricsProg || !blitProg || !downsampleProg) throw new Error('Shader compilation failed');
     this.program = prog;
     this.metricsProgram = metricsProg;
     this.blitProgram = blitProg;
+    this.downsampleProgram = downsampleProg;
 
     // Fullscreen quad
     const buf = gl.createBuffer()!;
@@ -855,6 +911,8 @@ export class LiquidGlassEngine {
       capturing: false,
       recaptureQueued: false,
       timer: 0,
+      clippers: [],
+      clippersAge: Infinity,
       detach: () => {},
     };
     const live = options.liveContent && element instanceof HTMLCanvasElement && supportsHtmlInCanvas();
@@ -1080,6 +1138,58 @@ export class LiquidGlassEngine {
     backdrop.dirty = false;
   }
 
+  /**
+   * The ancestors that clip a backdrop: those with a non-visible overflow that
+   * actually contain it. An absolutely positioned element is only clipped by
+   * ancestors at or above its containing block, and a fixed one by none.
+   */
+  private _findClippers(element: HTMLElement) {
+    const clippers: HTMLElement[] = [];
+    let position = getComputedStyle(element).position;
+    for (let node = element.parentElement; node && position !== 'fixed'; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      const containsAbsolute = style.position !== 'static' || style.transform !== 'none';
+      // Between an absolute element and its containing block, ancestors do not clip it
+      if (position === 'absolute' && !containsAbsolute) continue;
+      const clips = (value: string) => value !== 'visible';
+      if (clips(style.overflowX) || clips(style.overflowY)) clippers.push(node);
+      position = style.position;
+    }
+    return clippers;
+  }
+
+  /**
+   * The part of a backdrop that is actually visible, in client px: its own rect
+   * cut down by every clipping ancestor's padding box. Returns null when
+   * nothing is left. Clips are rectangular; an ancestor's rounded corners are
+   * not followed.
+   */
+  private _visibleRect(backdrop: BackdropState, rect: DOMRect) {
+    // The ancestor list is cached and refreshed about twice a second
+    if (backdrop.clippersAge > 30) {
+      backdrop.clippers = this._findClippers(backdrop.element);
+      backdrop.clippersAge = 0;
+    }
+    backdrop.clippersAge++;
+
+    let left = rect.left;
+    let top = rect.top;
+    let right = rect.right;
+    let bottom = rect.bottom;
+    for (const clipper of backdrop.clippers) {
+      const box = clipper.getBoundingClientRect();
+      // Padding box: inside the border, excluding any scrollbar
+      const boxLeft = box.left + clipper.clientLeft;
+      const boxTop = box.top + clipper.clientTop;
+      left = Math.max(left, boxLeft);
+      top = Math.max(top, boxTop);
+      right = Math.min(right, boxLeft + clipper.clientWidth);
+      bottom = Math.min(bottom, boxTop + clipper.clientHeight);
+    }
+    if (right <= left || bottom <= top) return null;
+    return { left, top, right, bottom };
+  }
+
   private _releaseBackdrop(backdrop: BackdropState) {
     backdrop.detach();
     this.gl.deleteTexture(backdrop.texture);
@@ -1114,14 +1224,28 @@ export class LiquidGlassEngine {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
     // Backdrops, premultiplied, at their live client rects (top-first rows:
-    // the top of the viewport is the bottom of clip space)
+    // the top of the viewport is the bottom of clip space). Each is scissored
+    // to the part its ancestors leave visible, so the glass cannot see content
+    // that an `overflow: hidden` container hides from the user.
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.SCISSOR_TEST);
+    const scaleX = width / viewW;
+    const scaleY = height / viewH;
     for (const backdrop of this.backdrops) {
       if (!backdrop.ready) continue;
       const rect = backdrop.element.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) continue;
       if (rect.bottom < 0 || rect.top > viewH || rect.right < 0 || rect.left > viewW) continue;
+      const visible = this._visibleRect(backdrop, rect);
+      if (!visible) continue;
+      // Scene rows run top-first, so a client y maps straight to a scene row
+      const sx = Math.max(0, Math.round(visible.left * scaleX));
+      const sy = Math.max(0, Math.round(visible.top * scaleY));
+      const sw = Math.min(width, Math.round(visible.right * scaleX)) - sx;
+      const sh = Math.min(height, Math.round(visible.bottom * scaleY)) - sy;
+      if (sw <= 0 || sh <= 0) continue;
+      gl.scissor(sx, sy, sw, sh);
       gl.bindTexture(gl.TEXTURE_2D, backdrop.texture);
       gl.uniform4f(
         this._blitUniform('u_rect'),
@@ -1132,8 +1256,67 @@ export class LiquidGlassEngine {
       );
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
+    gl.disable(gl.SCISSOR_TEST);
     gl.disable(gl.BLEND);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  // ── Private: frost pyramid ──
+
+  /**
+   * Blur the backdrop into a pyramid: level 1 is the source at half size,
+   * level 2 a quarter, and so on, each filtered from the one before. Built once
+   * per frame for the whole viewport, and only on frames where some lens is
+   * frosted. Level 0 is the source itself.
+   */
+  private _buildBlurPyramid(source: WebGLTexture, sourceWidth: number, sourceHeight: number) {
+    const gl = this.gl;
+    gl.disable(gl.BLEND);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.useProgram(this.downsampleProgram);
+    gl.uniform1i(this._downsampleUniform('u_texture'), 0);
+
+    let input = source;
+    let width = sourceWidth;
+    let height = sourceHeight;
+    let count = 0;
+    for (let i = 0; i < FROST_MAX_LEVELS; i++) {
+      width = Math.max(1, Math.ceil(width / 2));
+      height = Math.max(1, Math.ceil(height / 2));
+      if (Math.min(width, height) < 4) break;
+
+      let level = this.blurLevels[i];
+      if (!level) {
+        const texture = this._createTexture();
+        const fbo = gl.createFramebuffer()!;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+        level = { texture, fbo, width: 0, height: 0 };
+        this.blurLevels[i] = level;
+      }
+      if (level.width !== width || level.height !== height) {
+        gl.bindTexture(gl.TEXTURE_2D, level.texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        level.width = width;
+        level.height = height;
+      }
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, level.fbo);
+      gl.viewport(0, 0, width, height);
+      gl.bindTexture(gl.TEXTURE_2D, input);
+      gl.uniform2f(this._downsampleUniform('u_halfPixel'), 0.5 / width, 0.5 / height);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      input = level.texture;
+      count++;
+    }
+    this.blurLevelCount = count;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  /** Whether a lens will be frosted this frame, after accessibility preferences */
+  private _isFrosted(config: GlassConfig, env: Environment) {
+    return config.frost > 0 || env.reduceTransparency;
   }
 
   // ── Private: resources ──
@@ -1243,6 +1426,15 @@ export class LiquidGlassEngine {
     return location;
   }
 
+  private _downsampleUniform(name: string) {
+    let location = this.downsampleUniforms.get(name);
+    if (location === undefined) {
+      location = this.gl.getUniformLocation(this.downsampleProgram, name);
+      this.downsampleUniforms.set(name, location);
+    }
+    return location;
+  }
+
   private _uniform(name: string) {
     let location = this.uniforms.get(name);
     if (location === undefined) {
@@ -1324,6 +1516,14 @@ export class LiquidGlassEngine {
       gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
     }
 
+    // Frost pyramid, only when something on screen is frosted
+    this.blurLevelCount = 0;
+    if (frames.some(frame => this._isFrosted(frame.lens.config, env))) {
+      this._buildBlurPyramid(sourceTexture, sourceWidth, sourceHeight);
+      gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
+    }
+    this.frameSource = sourceTexture;
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
     gl.clearColor(0, 0, 0, 0);
@@ -1334,6 +1534,8 @@ export class LiquidGlassEngine {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // premultiplied
     gl.useProgram(this.program);
     gl.uniform1i(this._uniform('u_texture'), 0);
+    gl.uniform1i(this._uniform('u_blurA'), 1);
+    gl.uniform1i(this._uniform('u_blurB'), 2);
     gl.uniform2f(this._uniform('u_texResolution'), sourceWidth, sourceHeight);
 
     // Lenses that share a group draw together; everything else draws alone
@@ -1657,7 +1859,25 @@ export class LiquidGlassEngine {
 
     gl.uniform1f(this._uniform('u_refraction'), refraction);
     gl.uniform1f(this._uniform('u_bevelDepth'), bevelDepth);
+
+    // Frost: pick the two pyramid levels that bracket the wanted blur. `level`
+    // is fractional; below 0 the source itself is fine enough to tap directly.
+    const frostRadius = frost * FROST_RADIUS_PER_UNIT;
+    const level = frostRadius > 0 ? Math.log2(FROST_LEVEL_SCALE * frostRadius) : 0;
+    const levelA = clamp(Math.floor(level), 0, this.blurLevelCount);
+    const levelB = Math.min(levelA + 1, this.blurLevelCount);
+    const levelTexture = (index: number) => (index === 0 ? this.frameSource : this.blurLevels[index - 1].texture);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, levelTexture(levelA));
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, levelTexture(levelB));
+    gl.activeTexture(gl.TEXTURE0);
     gl.uniform1f(this._uniform('u_frost'), frost);
+    gl.uniform1f(this._uniform('u_blurMix'), levelB > levelA ? clamp(level - levelA, 0, 1) : 0);
+    gl.uniform1f(
+      this._uniform('u_frostRadius'),
+      frostRadius * mix(1, FROST_DISK_COMPENSATION, clamp(level, 0, 1)),
+    );
     gl.uniform1f(this._uniform('u_chromAberration'), chroma);
     gl.uniform1f(this._uniform('u_fresnel'), c.fresnel);
     gl.uniform1f(this._uniform('u_edgeHighlight'), c.edgeHighlight);

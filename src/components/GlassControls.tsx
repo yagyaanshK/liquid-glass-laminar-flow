@@ -21,7 +21,7 @@ const SLIDERS: { key: NumericGlassConfigKey; label: string; min: number; max: nu
   { key: 'refraction',      label: 'Refraction / Distortion', min: 0, max: 0.3,  step: 0.001 },
   { key: 'bevelDepth',      label: 'Bevel Depth',         min: 0, max: 0.6,  step: 0.005 },
   { key: 'bevelWidth',      label: 'Bevel Width',         min: 0, max: 0.5,  step: 0.005 },
-  { key: 'frost',           label: 'Frost (Blur)',        min: 0, max: 5,    step: 0.1   },
+  { key: 'frost',           label: 'Frost (Blur)',        min: 0, max: 10,   step: 0.1   },
   { key: 'cornerRadius',    label: 'Corner Radius',       min: 0, max: 200,  step: 1     },
   { key: 'cornerSmoothing', label: 'Corner Smoothing',    min: 0, max: 1,    step: 0.01  },
   { key: 'chromAberration', label: 'Chromatic Aberration', min: 0, max: 0.5, step: 0.005 },

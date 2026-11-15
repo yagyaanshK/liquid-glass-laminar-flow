@@ -194,15 +194,27 @@ Live-mode layout note: a canvas cannot size itself to its children, and its chil
 
 **Layering.** By default the glass canvas is appended to `<body>` at `z-index: -1`, under all DOM, which is right when the glass only refracts a canvas. For glass *over* DOM content, construct the engine with `{ overlayParent, overlayZIndex }` so the canvas sits inside the page's stacking context, above the backdrop elements, and give lens elements a higher `z-index` than the canvas so their own content stays on top (`.glass-above-dom [data-liquid-glass-lens] { z-index: 2 }`). The canvas is `position: fixed`, so no ancestor of `overlayParent` may have a transform or filter.
 
+**Clipping.** A backdrop is drawn only where the user can see it. The engine collects the ancestors whose `overflow` is not `visible` (respecting containing blocks: an absolutely positioned backdrop is only clipped at or above its containing block, a fixed one not at all), intersects the backdrop's rect with each ancestor's padding box every frame, and scissors the composite to the result. Content hidden by an `overflow: hidden` or scrolling container therefore does not show up in the glass. The ancestor list is cached and rebuilt about twice a second.
+
 Append `?dom=snapshot` to the WebGL route to force the fallback in a browser that supports the live path.
 
 ### Scroll Edge Effect
 
 `PageShell` replaces the top bar's hard divider with a scroll edge: once the page has scrolled, the border fades out and a band under the bar fades in, where content blurs and dims progressively as it approaches the bar (a `backdrop-filter` blur under a gradient mask). It is a sibling of the bar rather than a child, because a nested `backdrop-filter` can only see its ancestor's backdrop, not the page. The bar and the band carry `data-liquid-glass-ignore`, so DOM snapshots do not include UI that sits above the glass.
 
+### Frost
+
+Frost used to be a single-pass disk blur of up to 128 taps per pixel (up to 384 texture fetches with dispersion). It is now a fixed 16 taps into a pre-blurred **pyramid**:
+
+1. On frames where some lens is frosted, the backdrop is downsampled five times, each level half the size of the last and filtered with a 5-tap tent (`DOWNSAMPLE_FRAGMENT_SHADER`). The whole pyramid costs about as much as one extra full-screen pass, and is shared by every lens.
+2. One unit of `frost` is 6 source texels of blur radius `R`. The lens samples the level whose texels are about `0.35 R` wide, where 16 golden-angle taps overlap enough to cover the disk smoothly. The level is fractional: the two neighbouring levels are bound as `u_blurA` / `u_blurB` and blended by `u_blurMix`, so the blur grows continuously instead of stepping.
+3. The pyramid's own blur adds to the tap disk, so the disk radius is scaled by `0.87` to keep the total close to a plain disk of radius `R`. In a glass-only strip the result differs from the old blur by under 0.3 of 255 on average for the same slider value.
+
+Cost per frosted pixel is 16 fetches below about 3px of radius, 32 above it (two levels), and 64 with dispersion (red and blue use every other tap), whatever the radius. That is why the Frost slider now goes to 10 (60px) instead of 5.
+
 ### Not Modelled
 
-- **Backdrops outside their clip.** A backdrop is drawn at its full client rect; if an ancestor clips it (`overflow: hidden`), the glass can still see the clipped part. CSS opacity and transforms other than translation and scale on a backdrop are not reproduced either.
+- **Non-rectangular clips and backdrop effects.** Backdrop clipping follows ancestors' boxes, not their rounded corners or `clip-path`. CSS opacity and transforms other than translation and scale on a backdrop are not reproduced.
 - **Glass-on-glass** layering rules and per-element thickness presets.
 - **Blend-mode vibrancy**; see Vibrancy above for what is done instead.
 
@@ -216,7 +228,7 @@ Append `?dom=snapshot` to the WebGL route to force the fallback in a browser tha
 - Backdrop metrics are measured on the GPU and read back as a tiny block (at most 128x8 px) every 6th frame, not by reading the full source canvas.
 - The surface normal costs four extra field evaluations per pixel, but only inside the bevel; the flat centre of a lens skips it.
 - The scene pass (one full-viewport blit plus one quad per backdrop) only runs when a DOM backdrop is registered.
-- Frost is still a single-pass disk blur of up to 128 taps per pixel; it is the most expensive setting in the shader.
+- Frost reads a blur pyramid built once per frame (and only when something is frosted), so its per-pixel cost is fixed at 16 to 64 fetches instead of growing with the blur radius.
 
 ## Integration Example
 
