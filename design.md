@@ -66,11 +66,11 @@ Used by: **liquidGL (NaughtyDuk)**, **@ybouane/liquidglass**, **liquid-glass-stu
 1. Capture the backend pixels (either via a live WebGL `<canvas>` or `html2canvas` DOM snapshot)
 2. Upload that texture to WebGL
 3. For each glass element, render a fullscreen quad with a custom fragment shader that:
-   - Computes a signed distance field (SDF) from the element's rounded-rect boundary
+   - Computes a signed distance field (SDF) from the element's boundary; in this repository, one smooth-union field per group of lenses, so grouped lenses merge
    - Uses the SDF to derive the edge factor and normal direction
    - Optionally switches to a black-hole-inspired radial `theta^2 / r` gravity lens field
-   - Offsets UV coordinates based on the edge factor to simulate refraction
-   - Optionally applies Gaussian blur, chromatic aberration, specular highlights
+   - Offsets the sample position along the normal, scaled by the edge factor, to simulate refraction
+   - Optionally applies Gaussian blur, chromatic aberration, rim light, adaptive tint and a drop shadow
 4. Render the output onto a `<canvas>` overlaid on the DOM element
 
 **Pros:** True pixel displacement, works cross-browser, dynamic content support
@@ -312,6 +312,18 @@ vec2 refracted = mapped + vec2(offsetPx.x, -offsetPx.y) * (u_bounds.zw / u_resol
 - **Normal, not radial.** `normalize(p)` points away from the centre, which is only right for a circle. On a pill or a long panel edge it shears the image sideways. The SDF gradient is perpendicular to the nearest edge for every shape, so no `centreBlend` fade is needed.
 - **Lens units, not texture units.** Adding the offset in texture UV made `0.03` mean 3% of the viewport, different in x and y. Working in lens px keeps the bend the same for a given lens wherever it is and whatever the window size.
 - **One y convention.** SDF space is y-up and the texture is y-down; every px offset is flipped once, at the UV conversion.
+
+Beyond refraction, the engine implements the Apple behaviours listed below; `implementation_details_webgl.md` covers each one.
+
+| Behaviour | Mechanism |
+|---|---|
+| **Merging** | Lenses sharing `group` are one draw call with a smooth-union (`smin`) field |
+| **Continuous corners** | `cornerSmoothing` turns the corner arc into a superellipse (p-norm) |
+| **Adaptive tint / shadow** | Backdrop luminance and contrast measured on the GPU every 6th frame; `data-glass-scheme` exposed to CSS |
+| **Rim light** | Specular line from `dot(normal, lightDir)`; `lightAngle` shifts with device tilt |
+| **Press response** | Spring-driven CSS `scale` on the lens element plus a pointer glow |
+| **Materialize** | Refraction ramps in from zero instead of a plain fade |
+| **Accessibility** | `prefers-reduced-motion`, `prefers-reduced-transparency`, `prefers-contrast` each switch the optics |
 
 ### Frost (Gaussian Blur)
 ```glsl

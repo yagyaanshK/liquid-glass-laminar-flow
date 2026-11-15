@@ -1,5 +1,6 @@
 import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import { AaveLensGlass, type AaveLensParams } from '../components/AaveLensGlass';
+import { useMediaQuery } from '../components/useGlassEnvironment';
 import { PageShell, DemoBackground } from '../components/PageShell';
 
 const TABS = ['Supply', 'Borrow', 'Stake'];
@@ -203,7 +204,9 @@ function GlassVideoControls() {
 export default function AaveSvgPage() {
   const [activeTab, setActiveTab] = useState(TABS[0]);
   const [liquidity, setLiquidity] = useState(128420);
-  const [lensPosition, setLensPosition] = useOrbitPosition(true);
+  // The lens drifts on its own unless the user prefers reduced motion; it still follows the pointer
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const [lensPosition, setLensPosition] = useOrbitPosition(!reduceMotion);
 
   const updateLens = (event: PointerEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -289,12 +292,17 @@ export default function AaveSvgPage() {
           <article>
             <span>Layering</span>
             <strong>Native controls below, refracted clone above.</strong>
-            <p>The lens is pointer-transparent, so the visible UI remains accessible and interactive.</p>
+            <p>The lens is pointer-transparent and its clone is inert, so the visible UI stays the only interactive copy.</p>
           </article>
           <article>
             <span>Scope</span>
             <strong>Component-sized work, not full-page capture.</strong>
             <p>Each lens samples only the component content it needs, matching the Aave article's production tradeoff.</p>
+          </article>
+          <article>
+            <span>Response</span>
+            <strong>Press to flex, tilt to move the light.</strong>
+            <p>Pressing a component makes its lens swell and glow from the pointer. Reduced motion, reduced transparency and increased contrast each switch the lens to a calmer variant.</p>
           </article>
         </section>
       </main>

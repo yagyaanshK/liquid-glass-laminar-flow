@@ -41,7 +41,9 @@ The core of the effect happens on the GPU. The fragment shader calculates a Sign
 **Key Visual Features in the Shader:**
 - **Refraction:** Displacing the sample position along the shape's surface normal (the SDF gradient), toward the interior, like a convex bevel.
 - **Dispersion (Chromatic Aberration):** Sampling red slightly less displaced and blue slightly more displaced than green, along the same direction the lens bends.
-- **Specular Highlights:** Animated light streaks simulating reflections bouncing off the glass surface.
+- **Rim Light:** A thin specular line where the rim faces the light, a dimmer one on the opposite side, and a soft sheen on the lit bevel.
+- **Merging:** Lenses in the same group are one smooth-union SDF, so they blend into each other as they approach.
+- **Adaptive Tint and Shadow:** The glass measures the backdrop behind it and flips between dark and light.
 - **Gravity Lens Field:** Optional black-hole-inspired radial displacement using a weak-field `theta^2 / r` formula, clipped by the existing SDF shapes.
 
 #### Units and Coordinate Spaces
@@ -56,6 +58,8 @@ vec2 refracted = mapped + vec2(offsetPx.x, -offsetPx.y) * pxToUv;   // texture v
 - `refraction`, `bevelDepth` and `bevelWidth` are fractions of the lens's **shorter side**. The same config gives the same look on a lens of a given size regardless of viewport size or aspect ratio.
 - The bevel width is clamped to the shape's inradius, so the normal field never crosses the medial axis (which would show as a crease).
 - `u_bounds` is the lens rect divided by the viewport size. The source texture always covers the viewport, so this mapping does not depend on the texture's resolution.
+
+`u_bounds` became `u_uvRect` once lenses started drawing in groups: it is the UV rect of the group's draw rectangle (the lenses plus a margin for the shadow), not of a single lens.
 
 #### Gravity Lens Field Mode
 
@@ -90,6 +94,82 @@ The mode can also be opened directly with:
 /#/webgl?field=gravity&controls=open
 ```
 
+## Apple-Style Behaviours
+
+These are the parts of Apple's Liquid Glass that go beyond bending pixels. All of them live in `LiquidGlassEngine.ts`; the html2canvas route inherits them because it uses the same engine.
+
+### Groups and Merging
+
+Each draw call covers a *group* of up to 8 lenses. The shader evaluates one signed distance field for the whole group, joining the shapes with a polynomial smooth minimum:
+
+```glsl
+float field(vec2 pos) {
+  float d = 1.0e5;
+  for (int i = 0; i < MAX_SHAPES; i++) {
+    if (i >= u_count) break;
+    float di = shapeDistance(pos - u_shapeBox[i].xy, u_shapeBox[i], u_shapeParams[i]);
+    d = (i == 0) ? di : smin(d, di, u_blend);
+  }
+  return d;
+}
+```
+
+The mask, the bevel, the surface normal (the gradient of `field`) and the shadow all come from this merged field, so the refraction flows continuously across the neck between two lenses. Lenses join a group by sharing `config.group`; `config.blend` is the distance in CSS px at which they start to blend. A lens without a group is a group of one. The group's optics come from its first lens.
+
+Shape *morphing* needs nothing extra: the engine reads each lens element's client rect every frame, so a CSS transition or animation on the element's size or position animates the glass.
+
+### Continuous Corners
+
+`cornerSmoothing` (0–1) replaces the circular corner arc of a rectangle with a superellipse, like the continuous corners on Apple platforms. `continuousCorner()` stretches the corner along the edges (to about 1.53x the radius at 0.6) and raises the exponent `n` so that the apex stays where the circular corner had it; the shader then measures the corner with a p-norm instead of `length()`. A capsule has no room to stretch, so it stays a true semicircle.
+
+### Adaptive Tint and Shadow
+
+Every 6th frame the engine renders the backdrop behind each lens into an 8x8 block of a small framebuffer (16 taps per cell) and reads all blocks back with one `readPixels`. From that it keeps, per lens:
+
+- **luminance** — drives a light/dark `scheme` with hysteresis (to light above 0.58, to dark below 0.45) and an eased transition. The tint colour is mixed between a dark and a light glass colour by `scheme`.
+- **contrast** — how busy the backdrop is. The shadow deepens over busy content and eases off over bright, plain areas.
+
+The engine writes `data-glass-scheme="light|dark"` on the lens element, so content placed on the glass can switch colour in CSS:
+
+```css
+[data-glass-scheme="light"] .label { color: #0b0f14; }
+```
+
+The shadow is the same field evaluated at a downward offset and softened; its offset and blur scale with the lens size, so larger glass reads as thicker. Set `adaptive: false` to keep dark glass and a fixed shadow.
+
+### Rim Light
+
+`lightAngle` is the direction the light comes from, in degrees (135 = top left). The rim brightens where the surface normal faces the light and, more dimly, on the opposite side. On devices that report orientation, left/right tilt adds up to ±36° to the angle, so the highlights travel around the rim as the device moves. (iOS only delivers orientation events after the page has requested permission; the engine does not prompt.)
+
+The Fresnel term mixes the rim toward the backdrop mirrored across the edge, so the bevel picks up the colour of what is just outside the glass rather than plain white.
+
+### Press Response
+
+With `interactive: true` the engine listens for pointer events on each lens element:
+
+- **Flex** — an underdamped spring drives the element's CSS `scale` (up to +3.5%), so the glass and the content on it swell together, overshoot slightly and settle.
+- **Glow** — light spreads from the pointer position and catches the bevel; it is faint on hover and full on press.
+
+### Materialize
+
+A new lens does not fade in. Its refraction ramps up from zero over about 0.45 s while its opacity comes in quickly, so it appears by starting to bend light.
+
+### Accessibility
+
+The engine reads three media queries every frame:
+
+| Preference | Effect |
+|---|---|
+| `prefers-reduced-motion: reduce` | No press flex, no tilt-driven light, no materialize ramp; refraction is reduced by 40% so content moves less as it passes behind the glass. |
+| `prefers-reduced-transparency: reduce` | Frost of at least 3, tint of at least 0.72, refraction cut to 35%, no dispersion. The backdrop reads as a soft colour rather than as content. |
+| `prefers-contrast: more` | Tint of at least 0.85, no dispersion or rim light, and a 1.5px outline that contrasts with the glass. |
+
+### Not Modelled
+
+- **Refraction of DOM content.** The live route only refracts the source canvas. Text and images in the DOM between the canvas and the glass are not bent; that needs the snapshot route or an HTML-in-canvas API.
+- **Scroll edge effects**, glass-on-glass layering rules, and per-element thickness presets.
+- **Vibrancy** for content on the glass, beyond the `data-glass-scheme` hook.
+
 ## Smoothness Notes
 
 - WebGL and background canvas rendering use a `1.5` DPR cap to reduce full-frame texture upload cost on high-density displays.
@@ -97,6 +177,8 @@ The mode can also be opened directly with:
 - Shape labels in `WebGLPage.tsx` are nested inside the same DOM elements registered as lenses. This keeps the visible label and the shader-rendered glass object aligned during scroll.
 - The DOM/SVG background avoids animating SVG `stroke-dashoffset`; it uses transform-based motion for smoother compositor-friendly animation.
 - The gravity lens mode changes only the UV offset formula; it does not add DOM capture work, extra render passes, or new textures.
+- Backdrop metrics are measured on the GPU and read back as a tiny block (at most 128x8 px) every 6th frame, not by reading the full source canvas.
+- The surface normal costs four extra field evaluations per pixel, but only inside the bevel; the flat centre of a lens skips it.
 
 ## Integration Example
 

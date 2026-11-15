@@ -4,6 +4,10 @@ type NumericGlassConfigKey = {
   [K in keyof GlassConfig]-?: NonNullable<GlassConfig[K]> extends number ? K : never;
 }[keyof GlassConfig];
 
+type BooleanGlassConfigKey = {
+  [K in keyof GlassConfig]-?: NonNullable<GlassConfig[K]> extends boolean ? K : never;
+}[keyof GlassConfig];
+
 interface Props {
   config: GlassConfig;
   onChange?: (config: GlassConfig) => void;
@@ -19,11 +23,15 @@ const SLIDERS: { key: NumericGlassConfigKey; label: string; min: number; max: nu
   { key: 'bevelWidth',      label: 'Bevel Width',         min: 0, max: 0.5,  step: 0.005 },
   { key: 'frost',           label: 'Frost (Blur)',        min: 0, max: 5,    step: 0.1   },
   { key: 'cornerRadius',    label: 'Corner Radius',       min: 0, max: 200,  step: 1     },
+  { key: 'cornerSmoothing', label: 'Corner Smoothing',    min: 0, max: 1,    step: 0.01  },
   { key: 'chromAberration', label: 'Chromatic Aberration', min: 0, max: 0.5, step: 0.005 },
   { key: 'fresnel',         label: 'Fresnel',             min: 0, max: 2,    step: 0.01  },
   { key: 'edgeHighlight',   label: 'Edge Highlight',      min: 0, max: 0.5,  step: 0.005 },
   { key: 'brightness',      label: 'Brightness',          min: -0.5, max: 0.5, step: 0.01 },
   { key: 'saturation',      label: 'Saturation',          min: -1, max: 1,   step: 0.01  },
+  { key: 'tint',            label: 'Tint',                min: 0, max: 1,    step: 0.01  },
+  { key: 'shadow',          label: 'Shadow',              min: 0, max: 0.9,  step: 0.01  },
+  { key: 'lightAngle',      label: 'Light Angle',         min: 0, max: 360,  step: 1     },
   { key: 'gravityStrength', label: 'Gravity Strength',    min: 0, max: 0.3,  step: 0.001 },
   { key: 'gravityFalloff',  label: 'Gravity Falloff',     min: 1, max: 12,   step: 0.1   },
   { key: 'gravitySoftness', label: 'Gravity Softness',    min: 0.01, max: 0.16, step: 0.001 },
@@ -35,11 +43,21 @@ const SDF_SLIDER_KEYS: NumericGlassConfigKey[] = [
   'bevelWidth',
   'frost',
   'cornerRadius',
+  'cornerSmoothing',
   'chromAberration',
   'fresnel',
   'edgeHighlight',
+  'tint',
+  'shadow',
+  'lightAngle',
   'brightness',
   'saturation',
+];
+
+const TOGGLES: { key: BooleanGlassConfigKey; label: string }[] = [
+  { key: 'specular',    label: 'Rim Light' },
+  { key: 'adaptive',    label: 'Adaptive Tint & Shadow' },
+  { key: 'interactive', label: 'Press Response' },
 ];
 
 const GRAVITY_SLIDER_KEYS: NumericGlassConfigKey[] = [
@@ -51,6 +69,10 @@ const GRAVITY_SLIDER_KEYS: NumericGlassConfigKey[] = [
   'edgeHighlight',
   'frost',
   'cornerRadius',
+  'cornerSmoothing',
+  'tint',
+  'shadow',
+  'lightAngle',
   'brightness',
   'saturation',
 ];
@@ -90,7 +112,7 @@ export function GlassControls({ config, onChange, readonly = false, inline = fal
   const sliderKeys = config.lensField === 'gravity' ? GRAVITY_SLIDER_KEYS : SDF_SLIDER_KEYS;
   const activeSliders = visibleKeys ? SLIDERS.filter(s => visibleKeys.includes(s.key)) : SLIDERS.filter(s => sliderKeys.includes(s.key));
   const showFieldMode = !visibleKeys || visibleKeys.includes('lensField');
-  const showSpecular = !visibleKeys || visibleKeys.includes('specular');
+  const activeToggles = TOGGLES.filter(t => !visibleKeys || visibleKeys.includes(t.key));
 
   return (
     <div className={`glass-controls ${readonly ? 'locked' : ''} ${inline ? 'inline' : ''}`}>
@@ -158,22 +180,24 @@ export function GlassControls({ config, onChange, readonly = false, inline = fal
           </div>
         ))}
 
-        {/* Specular toggle */}
-        {showSpecular && (
-          <div className="slider-row">
+        {/* Toggles */}
+        {activeToggles.map(t => (
+          <div key={t.key} className="slider-row">
             <label className="slider-label">
-              <span>Specular Highlights</span>
-              <span className="slider-value">{config.specular ? 'ON' : 'OFF'}</span>
+              <span>{t.label}</span>
+              <span className="slider-value">{config[t.key] ? 'ON' : 'OFF'}</span>
             </label>
             <button
-              className={`toggle-btn ${config.specular ? 'active' : ''}`}
-              onClick={() => set('specular', !config.specular)}
+              type="button"
+              className={`toggle-btn ${config[t.key] ? 'active' : ''}`}
+              aria-pressed={config[t.key]}
+              onClick={() => set(t.key, !config[t.key])}
               disabled={readonly}
             >
-              {config.specular ? '● Enabled' : '○ Disabled'}
+              {config[t.key] ? '● Enabled' : '○ Disabled'}
             </button>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );

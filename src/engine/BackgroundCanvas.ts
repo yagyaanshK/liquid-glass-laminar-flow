@@ -15,6 +15,15 @@ const COLORS = {
   blue: [92, 134, 255],
 } as const;
 
+export type BackgroundTheme = 'dark' | 'light';
+
+// The light theme swaps the neutrals and keeps the accent colours, so the same
+// scene can be shown behind the glass on a bright surface.
+const THEMES: Record<BackgroundTheme, { base: readonly number[]; mid: readonly number[]; grid: readonly number[]; ambient: number }> = {
+  dark: { base: COLORS.base, mid: COLORS.mid, grid: COLORS.grid, ambient: 1 },
+  light: { base: [233, 237, 242], mid: [72, 98, 114], grid: [38, 50, 62], ambient: 2.2 },
+};
+
 function rgba(color: readonly number[], alpha: number) {
   return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`;
 }
@@ -26,6 +35,7 @@ export class BackgroundCanvas {
   private staticCtx: CanvasRenderingContext2D;
   private animFrameId = 0;
   private _destroyed = false;
+  private theme: BackgroundTheme = 'dark';
 
   constructor(container: HTMLElement) {
     this.canvas = document.createElement('canvas');
@@ -47,6 +57,12 @@ export class BackgroundCanvas {
 
   start() {
     this._loop();
+  }
+
+  setTheme(theme: BackgroundTheme) {
+    if (theme === this.theme) return;
+    this.theme = theme;
+    this._drawStaticLayer();
   }
 
   destroy() {
@@ -90,7 +106,7 @@ export class BackgroundCanvas {
     const w = this.staticCanvas.width;
     const h = this.staticCanvas.height;
 
-    ctx.fillStyle = rgba(COLORS.base, 1);
+    ctx.fillStyle = rgba(THEMES[this.theme].base, 1);
     ctx.fillRect(0, 0, w, h);
     this._drawAmbient(ctx, w, h);
   }
@@ -105,7 +121,7 @@ export class BackgroundCanvas {
     for (const accent of accents) {
       const radius = Math.max(w, h) * accent.r;
       const gradient = ctx.createRadialGradient(w * accent.x, h * accent.y, 0, w * accent.x, h * accent.y, radius);
-      gradient.addColorStop(0, rgba(accent.color, accent.alpha));
+      gradient.addColorStop(0, rgba(accent.color, accent.alpha * THEMES[this.theme].ambient));
       gradient.addColorStop(1, rgba(accent.color, 0));
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, w, h);
@@ -113,13 +129,15 @@ export class BackgroundCanvas {
   }
 
   private _drawFlowField(ctx: CanvasRenderingContext2D, w: number, h: number, now: number) {
+    const mid = THEMES[this.theme].mid;
+    const boost = this.theme === 'light' ? 2.4 : 1;
     const rows = [
-      { y: 0.11, amp: 0.06, phase: 0, color: COLORS.mid, alpha: 0.13 },
-      { y: 0.22, amp: 0.08, phase: 1.2, color: COLORS.mid, alpha: 0.12 },
+      { y: 0.11, amp: 0.06, phase: 0, color: mid, alpha: 0.13 },
+      { y: 0.22, amp: 0.08, phase: 1.2, color: mid, alpha: 0.12 },
       { y: 0.37, amp: 0.07, phase: 2.4, color: COLORS.violet, alpha: 0.10 },
-      { y: 0.53, amp: 0.08, phase: 3.6, color: COLORS.mid, alpha: 0.12 },
+      { y: 0.53, amp: 0.08, phase: 3.6, color: mid, alpha: 0.12 },
       { y: 0.71, amp: 0.08, phase: 4.8, color: COLORS.violet, alpha: 0.09 },
-      { y: 0.86, amp: 0.06, phase: 6.0, color: COLORS.mid, alpha: 0.12 },
+      { y: 0.86, amp: 0.06, phase: 6.0, color: mid, alpha: 0.12 },
     ];
 
     ctx.save();
@@ -131,7 +149,7 @@ export class BackgroundCanvas {
       const y = h * row.y;
       const amp = h * row.amp;
 
-      ctx.strokeStyle = rgba(row.color, row.alpha);
+      ctx.strokeStyle = rgba(row.color, row.alpha * boost);
       ctx.setLineDash([18, 34]);
       ctx.lineDashOffset = -now * 14;
       ctx.beginPath();
@@ -149,7 +167,7 @@ export class BackgroundCanvas {
     const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     const spacing = 56 * dpr;
     const offset = (now * 7) % spacing;
-    ctx.fillStyle = rgba(COLORS.grid, 0.13);
+    ctx.fillStyle = rgba(THEMES[this.theme].grid, this.theme === 'light' ? 0.22 : 0.13);
 
     for (let y = -spacing + offset; y < h + spacing; y += spacing) {
       for (let x = -spacing + offset; x < w + spacing; x += spacing) {

@@ -1,5 +1,6 @@
-import { type CSSProperties, type ReactNode, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type PointerEvent, type ReactNode, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createAaveLensDisplacementMap } from '../engine/displacementMap';
+import { useDeviceTilt, useGlassEnvironment } from './useGlassEnvironment';
 
 export interface AaveLensParams {
   lensW: number;
@@ -31,6 +32,8 @@ interface AaveLensGlassProps {
   x?: number;
   y?: number;
   refractionTarget?: ReactNode;
+  /** Flex the lens and glow from the pointer while the component is pressed. */
+  interactive?: boolean;
   style?: CSSProperties;
 }
 
@@ -64,13 +67,39 @@ export function AaveLensGlass({
   x = 0.5,
   y = 0.5,
   refractionTarget,
+  interactive = true,
   style,
 }: AaveLensGlassProps) {
   const id = useId().replace(/:/g, '');
   const filterId = `aave-lens-filter-${id}`;
   const rootRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [pressed, setPressed] = useState(false);
+  const env = useGlassEnvironment();
+  const tilt = useDeviceTilt(!env.reduceMotion);
   const params = { ...DEFAULT_LENS, ...lens };
+
+  // Accessibility variants. On this route the content sits *under* the lens,
+  // so legibility means less optics, not more frost: the lens flattens toward
+  // a plain, sharp highlight. Increased contrast also drops the specular
+  // layers and gets a solid outline (see .is-more-contrast in index.css).
+  if (env.reduceTransparency || env.moreContrast) {
+    params.blurAmount = 0;
+    params.scaleX *= 0.35;
+    params.scaleY *= 0.35;
+    params.chromaAmount = 0;
+  }
+  if (env.moreContrast) {
+    params.glowStrength = 0;
+    params.edgeStrength = 0;
+  }
+
+  // One light direction for the map's specular channel and the CSS rim / sheen.
+  // Device tilt swings it, so highlights travel around the rim.
+  const lightRotation = params.specularRotation + tilt;
+  const lightRadians = (lightRotation * Math.PI) / 180;
+  const lightX = Math.cos(lightRadians);
+  const lightY = Math.sin(lightRadians);
 
   // feDisplacementMap has a single scale for both axes, so the per-axis
   // strengths are baked into the map and one base scale drives every channel.
@@ -93,7 +122,7 @@ export function AaveLensGlass({
       axisScaleY,
       splayAmount: params.splayAmount,
       edgeFalloff: true,
-      specularRotation: params.specularRotation,
+      specularRotation: lightRotation,
       glowStrength: params.glowStrength,
       glowSpread: params.glowSpread,
       glowExponent: params.glowExponent,
@@ -111,7 +140,7 @@ export function AaveLensGlass({
       axisScaleX,
       axisScaleY,
       params.splayAmount,
-      params.specularRotation,
+      lightRotation,
       params.glowStrength,
       params.glowSpread,
       params.glowExponent,
@@ -149,10 +178,39 @@ export function AaveLensGlass({
   const source = refractionTarget ?? children;
   const hasSize = size.width > 0 && size.height > 0;
 
+  // Press response: the glow follows the pointer through CSS variables, so
+  // moving the pointer does not re-render the component.
+  const trackPointer = (event: PointerEvent<HTMLDivElement>) => {
+    const root = rootRef.current;
+    if (!root) return;
+    const rect = root.getBoundingClientRect();
+    root.style.setProperty('--lens-press-x', `${event.clientX - rect.left - (lensLeft - params.lensW / 2)}px`);
+    root.style.setProperty('--lens-press-y', `${event.clientY - rect.top - (lensTop - params.lensH / 2)}px`);
+  };
+  const pressHandlers = interactive
+    ? {
+        onPointerDown: (event: PointerEvent<HTMLDivElement>) => { trackPointer(event); setPressed(true); },
+        onPointerMove: (event: PointerEvent<HTMLDivElement>) => { if (pressed) trackPointer(event); },
+        onPointerUp: () => setPressed(false),
+        onPointerCancel: () => setPressed(false),
+        onPointerLeave: () => setPressed(false),
+      }
+    : {};
+
+  const rootClassName = [
+    'aave-lens-root',
+    className,
+    pressed ? 'is-pressed' : '',
+    env.reduceMotion ? 'is-reduced-motion' : '',
+    env.reduceTransparency ? 'is-reduced-transparency' : '',
+    env.moreContrast ? 'is-more-contrast' : '',
+  ].filter(Boolean).join(' ');
+
   return (
     <div
       ref={rootRef}
-      className={`aave-lens-root ${className}`}
+      className={rootClassName}
+      {...pressHandlers}
       style={{
         '--lens-w': `${params.lensW}px`,
         '--lens-h': `${params.lensH}px`,
@@ -161,6 +219,9 @@ export function AaveLensGlass({
         '--lens-y': `${lensTop}px`,
         '--lens-brightness': params.brightness,
         '--lens-tint': params.tint,
+        '--lens-light-x': lightX,
+        '--lens-light-y': lightY,
+        '--lens-light-rot': `${lightRotation}deg`,
         ...style,
       } as CSSProperties}
     >
@@ -266,6 +327,7 @@ export function AaveLensGlass({
             </div>
           </div>
           <div className="aave-lens-tint" />
+          <div className="aave-lens-glow" />
           <div className="aave-lens-rim" />
         </div>
       )}

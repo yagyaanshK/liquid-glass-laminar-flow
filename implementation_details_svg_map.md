@@ -24,6 +24,7 @@ This is best for controls, cards, pills, sliders, media controls, and compact pa
 
 - `src/engine/displacementMap.ts`: generates and caches the PNG displacement maps.
 - `src/components/AaveLensGlass.tsx`: reusable lens wrapper that creates the SVG filter and clipped refracted overlay.
+- `src/components/useGlassEnvironment.ts`: accessibility media queries and quantized device tilt.
 - `src/pages/AaveSvgPage.tsx`: the fourth route, with a premium interactive finance-style surface and smaller glass controls.
 - `src/index.css`: lens layering, route layout, responsive behavior, and visual styling.
 
@@ -77,6 +78,19 @@ Additional visual layers add:
 - edge glow,
 - chroma fringe,
 - rounded lens clipping.
+
+## Press, Light and Accessibility
+
+`AaveLensGlass` implements the Apple-style behaviours that are possible without reading backdrop pixels.
+
+- **Press response.** While the component is pressed (`interactive`, on by default) the lens scales to 1.07 on an overshooting curve and a glow layer lights up from the pointer. The pointer position is written to CSS variables (`--lens-press-x`, `--lens-press-y`), so tracking it does not re-render React.
+- **One light direction.** `specularRotation` drives both the specular channel baked into the map and the CSS sheen and rim (`--lens-light-x`, `--lens-light-y`, `--lens-light-rot`), so they always agree. Device tilt shifts the angle in 15° steps within ±30°; the steps are coarse because each distinct angle needs its own generated map.
+- **Accessibility variants.** On this route the content sits *under* the lens, so legibility means less optics rather than more frost:
+  - `prefers-reduced-transparency: reduce` and `prefers-contrast: more` — no blur, no dispersion, displacement cut to 35%, sheen pulled back, and the lens body stops tinting what it covers.
+  - `prefers-contrast: more` — additionally drops the specular layers and draws a solid 2px outline.
+  - `prefers-reduced-motion: reduce` — no press scale, no tilt, and the hero lens stops drifting on its own (it still follows the pointer).
+
+Not available here: merging lenses and backdrop-adaptive tint. An SVG filter cannot evaluate a shared field across elements or measure what is behind it; those live in the WebGL route.
 
 ## Current Demo Interaction Model
 

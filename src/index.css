@@ -618,6 +618,98 @@ a {
   pointer-events: none;
 }
 
+/* Content on glass follows the scheme the engine reports for the lens */
+[data-glass-scheme="light"] .webgl-lens-label {
+  background: rgba(255, 255, 255, 0.84);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #0b0f14;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
+}
+
+.webgl-lens-label {
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+.webgl-backdrop-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  width: min(420px, 90vw);
+  padding: 0.85rem;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.webgl-stage-caption {
+  max-width: min(460px, 86vw);
+  margin: 1.1rem auto 0;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+/* Merging demo: a bar and an orb in the same glass group */
+.webgl-merge-stage {
+  position: relative;
+  width: min(480px, 88vw);
+  height: 96px;
+  margin: 0 auto;
+}
+
+.webgl-merge-bar,
+.webgl-merge-orb {
+  position: absolute;
+  top: 16px;
+  height: 64px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 600;
+  transition: color 0.25s ease;
+  user-select: none;
+  cursor: pointer;
+}
+
+.webgl-merge-bar {
+  left: 0;
+  width: 58%;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 1rem;
+  font-size: 0.86rem;
+}
+
+.webgl-merge-orb {
+  left: 58%;
+  width: 64px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  animation: webglMergeDrift 4.2s ease-in-out infinite alternate;
+}
+
+.webgl-merge-bar[data-glass-scheme="light"],
+.webgl-merge-orb[data-glass-scheme="light"] {
+  color: rgba(11, 15, 20, 0.9);
+}
+
+@keyframes webglMergeDrift {
+  from { transform: translateX(-14px); }
+  to { transform: translateX(118px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .webgl-merge-orb {
+    animation: none;
+    transform: translateX(4px);
+  }
+}
+
 .demo-shapes-row {
   display: flex;
   gap: 1.5rem;
@@ -1537,11 +1629,32 @@ a {
     inset 0 1px 1px rgba(255, 255, 255, 0.85),
     inset 0 -14px 28px rgba(0, 0, 0, 0.18);
   will-change: transform;
+  /* Overshooting curve: the lens swells past its target and settles, like gel */
+  transition: transform 0.42s cubic-bezier(0.3, 1.7, 0.45, 1), box-shadow 0.3s ease;
+}
+
+/* Press response: the lens swells and its shadow deepens */
+.aave-lens-root.is-pressed .aave-lens {
+  transform: translate3d(-50%, -50%, 0) scale(1.07);
+  box-shadow:
+    0 24px 54px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    inset 0 -14px 28px rgba(0, 0, 0, 0.18);
+}
+
+.aave-lens-root.is-reduced-motion .aave-lens {
+  transition: none;
+}
+
+.aave-lens-root.is-reduced-motion.is-pressed .aave-lens {
+  transform: translate3d(-50%, -50%, 0);
 }
 
 .aave-lens-refracted,
 .aave-lens-source-copy,
 .aave-lens-tint,
+.aave-lens-glow,
 .aave-lens-rim {
   position: absolute;
   inset: 0;
@@ -1562,13 +1675,44 @@ a {
   transform-origin: top left;
 }
 
+/* The sheen and rim are lit from --lens-light-x/y, the same direction the
+   displacement map's specular channel uses (default 45deg = from the top left). */
 .aave-lens-tint {
   z-index: 2;
   pointer-events: none;
   background:
-    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.46), transparent 24%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.02) 44%, rgba(99, 220, 180, 0.08));
+    radial-gradient(
+      circle at calc(50% - var(--lens-light-x, 0.707) * 36%) calc(50% - var(--lens-light-y, 0.707) * 44%),
+      rgba(255, 255, 255, 0.46),
+      transparent 24%
+    ),
+    linear-gradient(
+      calc(var(--lens-light-rot, 45deg) + 90deg),
+      rgba(255, 255, 255, 0.22),
+      rgba(255, 255, 255, 0.02) 44%,
+      rgba(99, 220, 180, 0.08)
+    );
   mix-blend-mode: screen;
+}
+
+/* Light spreading from the press point */
+.aave-lens-glow {
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at var(--lens-press-x, 50%) var(--lens-press-y, 50%),
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0.14) 38%,
+    transparent 72%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.aave-lens-root.is-pressed .aave-lens-glow {
+  opacity: 1;
+  transition-duration: 0.12s;
 }
 
 .aave-lens-rim {
@@ -1577,8 +1721,30 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.46);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 10px 12px 18px rgba(255, 255, 255, 0.2),
-    inset -12px -16px 24px rgba(0, 0, 0, 0.24);
+    inset calc(var(--lens-light-x, 0.707) * 15px) calc(var(--lens-light-y, 0.707) * 15px) 18px rgba(255, 255, 255, 0.2),
+    inset calc(var(--lens-light-x, 0.707) * -19px) calc(var(--lens-light-y, 0.707) * -19px) 24px rgba(0, 0, 0, 0.24);
+}
+
+/* Accessibility variants: the content under the lens must stay readable, so
+   the sheen is pulled back and the lens body stops tinting what it covers. */
+.aave-lens-root.is-more-contrast .aave-lens,
+.aave-lens-root.is-reduced-transparency .aave-lens {
+  background: transparent;
+}
+
+.aave-lens-root.is-more-contrast .aave-lens-tint,
+.aave-lens-root.is-reduced-transparency .aave-lens-tint {
+  opacity: 0.2;
+}
+
+.aave-lens-root.is-more-contrast .aave-lens-tint,
+.aave-lens-root.is-more-contrast .aave-lens-glow {
+  display: none;
+}
+
+.aave-lens-root.is-more-contrast .aave-lens-rim {
+  border: 2px solid rgba(255, 255, 255, 0.96);
+  box-shadow: none;
 }
 
 .aave2-page {
