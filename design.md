@@ -285,6 +285,34 @@ vec4 refrCol = texture2D(u_tex, refracted);
 
 **Key insight:** The `pow(edge, 10.0)` raises the edge factor to the 10th power, creating a very sharp edge-only bevel effect — this is what makes the distortion concentrate at the glass boundary rather than being spread across the entire surface.
 
+### How This Repository's Engine Differs
+
+`src/engine/LiquidGlassEngine.ts` keeps the same two-term edge profile but changes how the offset is built:
+
+```glsl
+// Lens-local device px, y up (the SDF space)
+vec2 p_px = (v_uv - 0.5) * u_resolution;
+float inside = -getDistance(p_px, b_px);
+float bevelPx = min(u_bevelWidth * minSide, inradius);      // never cross the medial axis
+float edge = 1.0 - smoothstep(0.0, bevelPx, inside);
+
+// Direction: the shape's outward surface normal (SDF gradient), not normalize(p)
+vec2 normal = shapeNormal(p_px, b_px);
+
+// Amount: fractions of the lens's shorter side, in px
+float amount = (edge * u_refraction + pow(edge, 10.0) * u_bevelDepth) * minSide;
+
+// Convex bevel: sample toward the interior
+vec2 offsetPx = -normal * amount;
+
+// px (y up) -> texture UV (y down)
+vec2 refracted = mapped + vec2(offsetPx.x, -offsetPx.y) * (u_bounds.zw / u_resolution);
+```
+
+- **Normal, not radial.** `normalize(p)` points away from the centre, which is only right for a circle. On a pill or a long panel edge it shears the image sideways. The SDF gradient is perpendicular to the nearest edge for every shape, so no `centreBlend` fade is needed.
+- **Lens units, not texture units.** Adding the offset in texture UV made `0.03` mean 3% of the viewport, different in x and y. Working in lens px keeps the bend the same for a given lens wherever it is and whatever the window size.
+- **One y convention.** SDF space is y-up and the texture is y-down; every px offset is flipped once, at the UV conversion.
+
 ### Frost (Gaussian Blur)
 ```glsl
 if (u_frost > 0.0) {

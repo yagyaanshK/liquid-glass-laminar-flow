@@ -5,48 +5,62 @@ This document explains the technical implementation of the `html2canvas` approac
 ## Overview
 Because WebGL shaders cannot natively bend DOM elements or CSS properties, applying a refractive displacement algorithm to standard HTML layouts requires a rendering bridge. 
 
-This approach uses `html2canvas` to take a static picture ("snapshot") of the entire webpage. That static snapshot image is then uploaded to the GPU as a texture array, where our `LiquidGlassEngine` can run the exact same Signed-Distance-Field (SDF) displacement shader as the "Live Canvas" approach.
+This approach uses `html2canvas` to take a static picture ("snapshot") of the visible viewport. That snapshot is uploaded to the GPU as a texture, where our `LiquidGlassEngine` runs the exact same Signed-Distance-Field (SDF) displacement shader as the "Live Canvas" approach.
 
 ## Key Components
 
 ### 1. Generating the Snapshot
-The `startSnapshot()` method in our `LiquidGlassEngine` automates the process of converting the DOM hierarchy into a WebGL-ready texture.
+The `startSnapshot()` method in our `LiquidGlassEngine` converts the DOM into a WebGL-ready texture.
 
 ```typescript
-import html2canvas from 'html2canvas';
-
-// Temporarily hide elements we don't want in the refraction map (like the glass itself!)
-const ignoreSelector = '[data-liquid-glass-ignore]';
-
-// 1. Capture the DOM
-const canvas = await html2canvas(document.body, {
-  scale: 2.0, // Double resolution to prevent jaggies when distorted!
+const snapCanvas = await html2canvas(snapshotRoot, {
   useCORS: true,
   backgroundColor: null,
-  ignoreElements: (element) => element.matches(ignoreSelector),
+  scale: Math.min(1.5, window.devicePixelRatio || 1),
+
+  // Capture only the visible viewport, so the texture lines up 1:1 with the
+  // fixed overlay canvas whatever the document height or scroll position is.
+  x: window.scrollX,
+  y: window.scrollY,
+  width: window.innerWidth,
+  height: window.innerHeight,
+
+  // Keep the overlay canvas (and anything opted out) out of the snapshot.
+  ignoreElements: el =>
+    el.hasAttribute('data-liquid-glass-overlay') ||
+    el.hasAttribute('data-liquid-glass-ignore'),
+
+  // Lens elements are hidden in the clone, NOT ignored. Ignoring removes them
+  // from layout, which shifts their neighbours and misaligns the snapshot.
+  onclone: doc => {
+    doc.querySelectorAll('[data-liquid-glass-lens]').forEach(el => {
+      el.style.visibility = 'hidden';
+    });
+  },
 });
 
-// 2. Upload to WebGL standard texture memory
-this.gl.bindTexture(this.gl.TEXTURE_2D, this.u_tex);
-this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, canvas);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, snapCanvas);
 ```
 
-### 2. Handling Coordinate Mapping
-A major challenge with DOM snapshots is coordinate alignment. If a glass element is halfway down the page, it must sample the texture at that exact scroll position, or the refracted image will not align with the literal background behind it.
+`html2canvas` renders a clone of the document, so nothing in the real page has to be hidden while it runs.
 
-Our engine tracks the absolute viewport bounding rectangles of every registered lens element:
+### 2. Handling Coordinate Mapping
+The glass must sample the texture at exactly the pixels behind it. Because the snapshot covers the viewport, a lens maps to texture UV directly from its client rect, independent of the texture's own resolution:
 
 ```typescript
 // Inside the WebGL render loop for each glass element
 const rect = element.getBoundingClientRect();
 
-// Pass the absolute screen coordinates to the vertex shader
-this.gl.uniform2f(
-  this.gl.getUniformLocation(this.program, 'u_elementPos'),
-  rect.left, 
-  window.innerHeight - rect.bottom // WebGL Y is flipped!
+gl.uniform4f(
+  uniforms.u_bounds,
+  rect.left / window.innerWidth,
+  rect.top / window.innerHeight,
+  rect.width / window.innerWidth,
+  rect.height / window.innerHeight,
 );
 ```
+
+A viewport-sized snapshot goes stale when the page scrolls or resizes, so the engine listens for both and re-captures about 180 ms after they settle.
 
 ### 3. Rendering The Glass
 The fragment shader logic is identical to the WebGL Live implementation. The only difference is the source of `u_tex`.
@@ -54,5 +68,6 @@ The fragment shader logic is identical to the WebGL Live implementation. The onl
 ## Advantages & Trade-offs
 - **Advantages:** Allows full-page refraction over arbitrary HTML DOM layouts, including text, complex flexbox layouts, other images, etc. Visually identical to true native OS glass.
 - **Trade-offs:** 
-  1. Capturing the DOM via `html2canvas` is a synchronous, heavy performance operation that causes a slight jitter on initialization.
-  2. The texture is **static**. If the user scrolls, plays a video behind the glass, or resizes the screen, the snapshot becomes desynced from reality. The engine must either re-snapshot (extremely slow to do dynamically) or manually apply CSS translations to offset the `u_elementPos` to fake alignment while scrolling.
+  1. Capturing the DOM via `html2canvas` is a heavy operation (hundreds of milliseconds) that causes a slight jitter on initialization and after each re-capture.
+  2. The texture is **static between captures**. While the user is scrolling, and for anything that animates behind the glass (video, CSS animation), the glass shows a stale image until the next capture.
+  3. `html2canvas` re-implements CSS rendering and does not support everything (for example `backdrop-filter`, most `filter` functions, and blend modes), so the snapshot can differ from what the browser painted.

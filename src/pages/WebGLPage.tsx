@@ -7,7 +7,7 @@ import { BackgroundCanvas } from '../engine/BackgroundCanvas';
 
 const GRAVITY_MODE_CONFIG: Partial<GlassConfig> = {
   lensField: 'gravity',
-  gravityStrength: 0.105,
+  gravityStrength: 0.16,
   gravityFalloff: 4.2,
   gravitySoftness: 0.045,
   frost: 0,

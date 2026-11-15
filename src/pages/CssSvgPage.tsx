@@ -1,52 +1,77 @@
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PageShell, DemoBackground } from '../components/PageShell';
 import { GlassControls } from '../components/GlassControls';
 import { DEFAULT_CONFIG } from '../engine/LiquidGlassEngine';
+import { createRoundedGlassDisplacementMap } from '../engine/displacementMap';
+
+// Lens parameters for the SVG refraction panel, in the same lens-relative
+// units as the WebGL shader (fractions of the panel's shorter side).
+const SVG_LENS = { refraction: 0.05, bevelDepth: 0.1, bevelWidth: 0.2, radius: 40 };
 
 export default function CssSvgPage() {
+  const refractRef = useRef<HTMLDivElement>(null);
+  const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
+
+  // The lens map has to match the panel 1:1, so track its rendered size
+  useLayoutEffect(() => {
+    const panel = refractRef.current;
+    if (!panel) return;
+    const update = () => {
+      const width = Math.round(panel.offsetWidth);
+      const height = Math.round(panel.offsetHeight);
+      setPanelSize(current => (current.width === width && current.height === height ? current : { width, height }));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
+
+  const lensMap = useMemo(
+    () => (panelSize.width > 0 && panelSize.height > 0
+      ? createRoundedGlassDisplacementMap({
+          width: panelSize.width,
+          height: panelSize.height,
+          radius: SVG_LENS.radius,
+          bevelWidth: SVG_LENS.bevelWidth,
+          refraction: SVG_LENS.refraction,
+          bevelDepth: SVG_LENS.bevelDepth,
+        })
+      : null),
+    [panelSize.width, panelSize.height],
+  );
+
   return (
     <PageShell title="CSS + SVG Filters" badge="Pure CSS" badgeColor="#3ecf8e">
       <DemoBackground />
 
-      {/* Hidden SVG filter definition for displacement-based refraction */}
-      <svg width="0" height="0" style={{ position: 'absolute' }}>
+      {/* Hidden SVG filter: a generated lens map drives feDisplacementMap over the backdrop */}
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
         <defs>
-          {/* Displacement map filter — bends pixels based on a turbulence pattern */}
-          <filter id="glass-displacement" x="-10%" y="-10%" width="120%" height="120%">
-            {/* Generate a bevel-like displacement map using turbulence */}
-            <feTurbulence
-              type="turbulence"
-              baseFrequency="0.01 0.01"
-              numOctaves="1"
-              seed="2"
-              result="noise"
-            />
-            {/* Displace the backdrop pixels using the turbulence as a normal map */}
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="noise"
-              scale="8"
-              xChannelSelector="R"
-              yChannelSelector="G"
-              result="displaced"
-            />
-            {/* Merge displaced + original for subtle effect */}
-            <feBlend in="displaced" in2="SourceGraphic" mode="normal" />
-          </filter>
-
-          {/* Specular lighting for fake bevel highlights */}
-          <filter id="glass-specular" x="-5%" y="-5%" width="110%" height="110%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
-            <feSpecularLighting
-              in="blur"
-              result="specular"
-              specularConstant="1.2"
-              specularExponent="20"
-              lightingColor="#ffffff"
-            >
-              <fePointLight x="200" y="50" z="150" />
-            </feSpecularLighting>
-            <feComposite in="specular" in2="SourceAlpha" operator="in" result="spec-masked" />
-            <feComposite in="SourceGraphic" in2="spec-masked" operator="arithmetic" k1="0" k2="1" k3="0.3" k4="0" />
+          <filter id="glass-displacement" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+            {lensMap && lensMap.url ? (
+              <>
+                {/* R/G hold the bend along the panel's surface normal; 1:1 with the panel in px */}
+                <feImage
+                  href={lensMap.url}
+                  x="0"
+                  y="0"
+                  width={panelSize.width}
+                  height={panelSize.height}
+                  preserveAspectRatio="none"
+                  result="lensMap"
+                />
+                <feDisplacementMap
+                  in="SourceGraphic"
+                  in2="lensMap"
+                  scale={lensMap.scale}
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+              </>
+            ) : (
+              <feOffset in="SourceGraphic" dx="0" dy="0" />
+            )}
           </filter>
         </defs>
       </svg>
@@ -109,20 +134,20 @@ export default function CssSvgPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '3rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <div className="demo-panel css-glass-refract" style={{ borderRadius: 40 }}>
+          <div ref={refractRef} className="demo-panel css-glass-refract" style={{ borderRadius: SVG_LENS.radius }}>
             <div className="demo-panel-content" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: 24, padding: '2.5rem', border: '1px solid rgba(255,255,255,0.08)' }}>
               <h2 style={{ color: '#fff' }}>SVG Refraction</h2>
               <p style={{ color: 'rgba(255,255,255,0.7)', marginTop: '0.75rem' }}>
-                feDisplacementMap bends pixels,<br />
-                feSpecularLighting adds bevel light,<br />
-                no JavaScript required.
+                A generated lens map feeds feDisplacementMap,<br />
+                bending the backdrop along the panel's edge normal.<br />
+                JavaScript only draws the map.
               </p>
             </div>
           </div>
 
           <GlassControls 
             title="Equivalent SVG Parameters"
-            config={{ ...DEFAULT_CONFIG, refraction: 0.05, frost: 1.2, bevelDepth: 0.1, bevelWidth: 0.2, specular: true }} 
+            config={{ ...DEFAULT_CONFIG, refraction: SVG_LENS.refraction, frost: 0.2, bevelDepth: SVG_LENS.bevelDepth, bevelWidth: SVG_LENS.bevelWidth, specular: true }} 
             readonly inline visibleKeys={['refraction', 'frost', 'bevelDepth', 'bevelWidth', 'specular']} 
           />
         </div>

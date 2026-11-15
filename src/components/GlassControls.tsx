@@ -14,8 +14,8 @@ interface Props {
 }
 
 const SLIDERS: { key: NumericGlassConfigKey; label: string; min: number; max: number; step: number }[] = [
-  { key: 'refraction',      label: 'Refraction / Distortion', min: 0, max: 0.2,  step: 0.001 },
-  { key: 'bevelDepth',      label: 'Bevel Depth',         min: 0, max: 0.5,  step: 0.005 },
+  { key: 'refraction',      label: 'Refraction / Distortion', min: 0, max: 0.3,  step: 0.001 },
+  { key: 'bevelDepth',      label: 'Bevel Depth',         min: 0, max: 0.6,  step: 0.005 },
   { key: 'bevelWidth',      label: 'Bevel Width',         min: 0, max: 0.5,  step: 0.005 },
   { key: 'frost',           label: 'Frost (Blur)',        min: 0, max: 5,    step: 0.1   },
   { key: 'cornerRadius',    label: 'Corner Radius',       min: 0, max: 200,  step: 1     },
@@ -24,7 +24,7 @@ const SLIDERS: { key: NumericGlassConfigKey; label: string; min: number; max: nu
   { key: 'edgeHighlight',   label: 'Edge Highlight',      min: 0, max: 0.5,  step: 0.005 },
   { key: 'brightness',      label: 'Brightness',          min: -0.5, max: 0.5, step: 0.01 },
   { key: 'saturation',      label: 'Saturation',          min: -1, max: 1,   step: 0.01  },
-  { key: 'gravityStrength', label: 'Gravity Strength',    min: 0, max: 0.18, step: 0.001 },
+  { key: 'gravityStrength', label: 'Gravity Strength',    min: 0, max: 0.3,  step: 0.001 },
   { key: 'gravityFalloff',  label: 'Gravity Falloff',     min: 1, max: 12,   step: 0.1   },
   { key: 'gravitySoftness', label: 'Gravity Softness',    min: 0.01, max: 0.16, step: 0.001 },
 ];
@@ -58,27 +58,27 @@ const GRAVITY_SLIDER_KEYS: NumericGlassConfigKey[] = [
 const PRESETS: { name: string; values: Partial<GlassConfig> }[] = [
   {
     name: 'Apple Default',
-    values: { refraction: 0.03, bevelDepth: 0.08, bevelWidth: 0.18, frost: 0, chromAberration: 0.05, fresnel: 0.6, edgeHighlight: 0.06, cornerRadius: 40, specular: true },
+    values: { refraction: 0.07, bevelDepth: 0.18, bevelWidth: 0.18, frost: 0, chromAberration: 0.05, fresnel: 0.6, edgeHighlight: 0.06, cornerRadius: 40, specular: true },
   },
   {
     name: 'Crystal',
-    values: { refraction: 0.03, bevelDepth: 0, bevelWidth: 0.273, frost: 0, chromAberration: 0, fresnel: 0.3, edgeHighlight: 0.02, cornerRadius: 30, specular: false },
+    values: { refraction: 0.07, bevelDepth: 0, bevelWidth: 0.273, frost: 0, chromAberration: 0, fresnel: 0.3, edgeHighlight: 0.02, cornerRadius: 30, specular: false },
   },
   {
     name: 'Frosted',
-    values: { refraction: 0, bevelDepth: 0.052, bevelWidth: 0.211, frost: 2, chromAberration: 0.02, fresnel: 0.4, edgeHighlight: 0.04, cornerRadius: 50, specular: true },
+    values: { refraction: 0, bevelDepth: 0.12, bevelWidth: 0.211, frost: 2, chromAberration: 0.02, fresnel: 0.4, edgeHighlight: 0.04, cornerRadius: 50, specular: true },
   },
   {
     name: 'Heavy Bevel',
-    values: { refraction: 0.073, bevelDepth: 0.2, bevelWidth: 0.156, frost: 0, chromAberration: 0.1, fresnel: 0.8, edgeHighlight: 0.1, cornerRadius: 60, specular: false },
+    values: { refraction: 0.15, bevelDepth: 0.4, bevelWidth: 0.156, frost: 0, chromAberration: 0.1, fresnel: 0.8, edgeHighlight: 0.1, cornerRadius: 60, specular: false },
   },
   {
     name: 'Water Drop',
-    values: { refraction: 0.1, bevelDepth: 0.3, bevelWidth: 0.35, frost: 0, chromAberration: 0.15, fresnel: 1.0, edgeHighlight: 0.08, cornerRadius: 120, specular: true },
+    values: { refraction: 0.2, bevelDepth: 0.5, bevelWidth: 0.35, frost: 0, chromAberration: 0.15, fresnel: 1.0, edgeHighlight: 0.08, cornerRadius: 120, specular: true },
   },
   {
     name: 'Gravity Lens',
-    values: { lensField: 'gravity', gravityStrength: 0.105, gravityFalloff: 4.2, gravitySoftness: 0.045, frost: 0, chromAberration: 0.16, fresnel: 1.1, edgeHighlight: 0.1, cornerRadius: 96, specular: true },
+    values: { lensField: 'gravity', gravityStrength: 0.16, gravityFalloff: 4.2, gravitySoftness: 0.045, frost: 0, chromAberration: 0.16, fresnel: 1.1, edgeHighlight: 0.1, cornerRadius: 96, specular: true },
   },
 ];
 

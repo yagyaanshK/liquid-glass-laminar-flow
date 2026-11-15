@@ -3,7 +3,11 @@
  *
  * Two modes:
  *   1. startLive(canvas) — reads from a live canvas every frame (no snapshots)
- *   2. startSnapshot()   — takes a one-time html2canvas DOM screenshot
+ *   2. startSnapshot()   — captures the visible viewport with html2canvas and
+ *                          re-captures after scroll / resize settles
+ *
+ * In both modes the source texture covers exactly the viewport, so a lens maps
+ * to texture UV as (client rect / viewport size).
  */
 
 // ─── GLSL Shaders ────────────────────────────────────────────────────────────
@@ -22,13 +26,13 @@ const FRAGMENT_SHADER = `
   varying vec2 v_uv;
 
   uniform sampler2D u_texture;
-  uniform vec2 u_resolution;       // element size in px
-  uniform vec2 u_texResolution;    // full texture size in px
-  uniform vec4 u_bounds;           // (x, y, w, h) in UV space on texture
+  uniform vec2 u_resolution;       // lens size in device px
+  uniform vec2 u_texResolution;    // source texture size in px
+  uniform vec4 u_bounds;           // lens rect (x, y, w, h) in texture UV space
   uniform float u_radius;          // corner radius in px
-  uniform float u_refraction;      // 0–1
-  uniform float u_bevelDepth;      // 0–1
-  uniform float u_bevelWidth;      // 0–1
+  uniform float u_refraction;      // broad edge bend, fraction of the lens's shorter side
+  uniform float u_bevelDepth;      // extra bend at the rim, fraction of the shorter side
+  uniform float u_bevelWidth;      // bevel width, fraction of the shorter side
   uniform float u_frost;           // blur radius in px
   uniform float u_chromAberration; // RGB split
   uniform float u_fresnel;         // 0–1
@@ -49,10 +53,6 @@ const FRAGMENT_SHADER = `
     return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r;
   }
 
-  // Pseudo-random hash
-  float hash(vec2 st) {
-    return fract(sin(dot(st, vec2(12.9898, 78.233))) * 43758.5453123);
-  }
   // Signed distance to expanding circle
   float sdCircle(vec2 p, float r) {
     return length(p) - r;
@@ -125,13 +125,14 @@ const FRAGMENT_SHADER = `
     return sdRoundBox(p_px, b_px, u_radius);
   }
 
-  // Edge factor: 0 = center, 1 = edge
-  float edgeFactor(vec2 uv) {
-    vec2 p_px = (uv - 0.5) * u_resolution;
-    vec2 b_px = 0.5 * u_resolution;
-    float d = -getDistance(p_px, b_px);
-    float bevelPx = u_bevelWidth * min(u_resolution.x, u_resolution.y);
-    return 1.0 - smoothstep(0.0, bevelPx, d);
+  // Outward unit normal of the shape: the SDF gradient, in px space with y up
+  vec2 shapeNormal(vec2 p_px, vec2 b_px) {
+    vec2 e = vec2(1.0, 0.0);
+    vec2 g = vec2(
+      getDistance(p_px + e.xy, b_px) - getDistance(p_px - e.xy, b_px),
+      getDistance(p_px + e.yx, b_px) - getDistance(p_px - e.yx, b_px)
+    );
+    return g / max(length(g), 0.0001);
   }
 
   // Shape mask (1 inside, 0 outside, AA at edge)
@@ -149,104 +150,83 @@ const FRAGMENT_SHADER = `
       return;
     }
 
-    // Refraction offset
-    vec2 p = v_uv - 0.5;
-    float aspect = u_resolution.x / max(u_resolution.y, 0.001);
-    p.x *= aspect;
+    // Everything below works in lens-local device px with y up (the SDF space).
+    // Offsets are converted to texture UV (y down) only at the very end.
+    vec2 b_px = 0.5 * u_resolution;
+    vec2 p_px = (v_uv - 0.5) * u_resolution;
+    float minSide = min(u_resolution.x, u_resolution.y);
+    float inside = -getDistance(p_px, b_px);
 
-    float edge = edgeFactor(v_uv);
-    vec2 dir = normalize(p + 0.0001);
-    vec2 offset;
+    // Clamp the bevel to the inradius so the normal field never crosses the
+    // medial axis (which would show up as a crease through the middle).
+    float inradius = max(-getDistance(vec2(0.0), b_px), 1.0);
+    float bevelPx = max(min(u_bevelWidth * minSide, inradius), 0.001);
+    float edge = 1.0 - smoothstep(0.0, bevelPx, inside);   // 1 at the rim, 0 in the flat centre
+
+    vec2 normal = (edge > 0.0) ? shapeNormal(p_px, b_px) : vec2(0.0);
+    vec2 offsetPx = vec2(0.0);
+    vec2 caDir = normal;
     float chromaField = edge;
 
     if (u_lensField == 1) {
+      // Radial field around the lens centre, in lens-height units
+      vec2 p = p_px / max(u_resolution.y, 0.001);
       float r = length(p);
+      vec2 dir = p / max(r, 0.0001);
       float theta = max(u_gravityStrength, 0.0);
       float defl = (theta * theta / max(r + u_gravitySoftness, 0.01)) * exp(-r * r * u_gravityFalloff);
       float boundaryFade = 1.0 - smoothstep(0.38, 1.0, edge);
       defl *= boundaryFade;
-      offset = vec2(-dir.x / aspect, -dir.y) * defl;
+      offsetPx = -dir * defl * u_resolution.y;
+      caDir = dir;
       chromaField = clamp(defl / max(theta * 0.65, 0.001), 0.0, 1.0) * boundaryFade;
     } else {
-      float offsetAmt = edge * u_refraction + pow(edge, 10.0) * u_bevelDepth;
-      float centreBlend = smoothstep(0.15, 0.45, length(p));
-      offset = dir * offsetAmt * centreBlend;
+      // Convex bevel: rays bend toward the interior, so sample against the outward normal
+      float amount = (edge * u_refraction + pow(edge, 10.0) * u_bevelDepth) * minSide;
+      offsetPx = -normal * amount;
     }
 
-    // Map local UV → texture UV
+    // Map local UV -> texture UV. Texture v runs downward, so flip y for both
+    // the position and every px-space offset.
+    vec2 pxToUv = u_bounds.zw / u_resolution;
     vec2 flippedUV = vec2(v_uv.x, 1.0 - v_uv.y);
     vec2 mapped = u_bounds.xy + flippedUV * u_bounds.zw;
-    vec2 refracted = mapped + offset;
+    vec2 refracted = mapped + vec2(offsetPx.x, -offsetPx.y) * pxToUv;
     vec2 texel = 1.0 / u_texResolution;
+
+    // Dispersion: red bends a little less than green, blue a little more,
+    // along the same direction the lens displaces.
+    float caPx = u_chromAberration * chromaField * 0.05 * minSide;
+    vec2 caUv = vec2(caDir.x, -caDir.y) * caPx * pxToUv;
+    bool split = u_chromAberration > 0.0;
 
     // Sample with optional frost (golden angle spiral disk blur)
     vec4 refrCol;
-    // Pre-compute chromatic aberration direction
-    float caOff = (u_chromAberration > 0.0) ? u_chromAberration * chromaField * 0.01 : 0.0;
-    vec2 caDir = (u_chromAberration > 0.0) ? dir : vec2(0.0);
-    vec2 caOffR = caDir * caOff;
-    vec2 caOffB = -caDir * caOff;
-
     if (u_frost > 0.0) {
       float radius = u_frost * 6.0;
-      vec4 sum = vec4(0.0);
       const float GOLDEN_ANGLE = 2.39996323; // ~137.5 degrees
-      float fSamples;
 
-      if (u_frost <= 1.0) {
-        // Very light frost — 32 samples
-        fSamples = 32.0;
-        for (int i = 0; i < 32; i++) {
-          float fi = float(i);
-          float angle = fi * GOLDEN_ANGLE;
-          float dist = sqrt((fi + 0.5) / 32.0) * radius;
-          vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
-          sum.r += texture2D(u_texture, refracted + caOffR + off).r;
-          sum.g += texture2D(u_texture, refracted + off).g;
-          sum.b += texture2D(u_texture, refracted + caOffB + off).b;
-          sum.a += texture2D(u_texture, refracted + off).a;
+      // Sample count scales with blur radius: 32 / 64 / 96 / 128
+      int samples = 128;
+      if (u_frost <= 1.0) samples = 32;
+      else if (u_frost <= 2.5) samples = 64;
+      else if (u_frost <= 4.0) samples = 96;
+      float fSamples = float(samples);
+
+      vec4 sum = vec4(0.0);
+      for (int i = 0; i < 128; i++) {
+        if (i >= samples) break;
+        float fi = float(i);
+        float angle = fi * GOLDEN_ANGLE;
+        float dist = sqrt((fi + 0.5) / fSamples) * radius;
+        vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
+        vec4 tap = texture2D(u_texture, refracted + off);
+        if (split) {
+          tap.r = texture2D(u_texture, refracted + caUv + off).r;
+          tap.b = texture2D(u_texture, refracted - caUv + off).b;
         }
-      } else if (u_frost <= 2.5) {
-        // Light-medium frost — 64 samples
-        fSamples = 64.0;
-        for (int i = 0; i < 64; i++) {
-          float fi = float(i);
-          float angle = fi * GOLDEN_ANGLE;
-          float dist = sqrt((fi + 0.5) / 64.0) * radius;
-          vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
-          sum.r += texture2D(u_texture, refracted + caOffR + off).r;
-          sum.g += texture2D(u_texture, refracted + off).g;
-          sum.b += texture2D(u_texture, refracted + caOffB + off).b;
-          sum.a += texture2D(u_texture, refracted + off).a;
-        }
-      } else if (u_frost <= 4.0) {
-        // Medium-heavy frost — 96 samples
-        fSamples = 96.0;
-        for (int i = 0; i < 96; i++) {
-          float fi = float(i);
-          float angle = fi * GOLDEN_ANGLE;
-          float dist = sqrt((fi + 0.5) / 96.0) * radius;
-          vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
-          sum.r += texture2D(u_texture, refracted + caOffR + off).r;
-          sum.g += texture2D(u_texture, refracted + off).g;
-          sum.b += texture2D(u_texture, refracted + caOffB + off).b;
-          sum.a += texture2D(u_texture, refracted + off).a;
-        }
-      } else {
-        // Heavy frost — 128 samples 
-        fSamples = 128.0;
-        for (int i = 0; i < 128; i++) {
-          float fi = float(i);
-          float angle = fi * GOLDEN_ANGLE;
-          float dist = sqrt((fi + 0.5) / 128.0) * radius;
-          vec2 off = vec2(cos(angle), sin(angle)) * texel * dist;
-          sum.r += texture2D(u_texture, refracted + caOffR + off).r;
-          sum.g += texture2D(u_texture, refracted + off).g;
-          sum.b += texture2D(u_texture, refracted + caOffB + off).b;
-          sum.a += texture2D(u_texture, refracted + off).a;
-        }
+        sum += tap;
       }
-
       refrCol = sum / fSamples;
     } else {
       refrCol  = texture2D(u_texture, refracted);
@@ -256,10 +236,9 @@ const FRAGMENT_SHADER = `
       refrCol += texture2D(u_texture, refracted + vec2(0.0, -texel.y));
       refrCol /= 5.0;
 
-      // Chromatic aberration (only when NOT frosted — already integrated above)
-      if (u_chromAberration > 0.0) {
-        refrCol.r = texture2D(u_texture, refracted + caOffR).r;
-        refrCol.b = texture2D(u_texture, refracted + caOffB).b;
+      if (split) {
+        refrCol.r = texture2D(u_texture, refracted + caUv).r;
+        refrCol.b = texture2D(u_texture, refracted - caUv).b;
       }
     }
 
@@ -304,6 +283,11 @@ const FRAGMENT_SHADER = `
 export type GlassShape = 'rect' | 'circle' | 'ellipse' | 'triangle' | 'hexagon';
 export type LensFieldMode = 'sdf' | 'gravity';
 
+/**
+ * Lengths are relative to the lens, not the viewport: `refraction`,
+ * `bevelDepth` and `bevelWidth` are fractions of the lens's shorter side, and
+ * the gravity field is measured in lens heights.
+ */
 export interface GlassConfig {
   shape?: GlassShape;
   lensField: LensFieldMode;
@@ -326,8 +310,8 @@ export interface GlassConfig {
 export const DEFAULT_CONFIG: GlassConfig = {
   shape: 'rect',
   lensField: 'sdf',
-  refraction: 0.03,
-  bevelDepth: 0.08,
+  refraction: 0.07,
+  bevelDepth: 0.18,
   bevelWidth: 0.18,
   frost: 0,
   cornerRadius: 40,
@@ -336,7 +320,7 @@ export const DEFAULT_CONFIG: GlassConfig = {
   edgeHighlight: 0.06,
   brightness: 0.0,
   saturation: 0.0,
-  gravityStrength: 0.09,
+  gravityStrength: 0.14,
   gravityFalloff: 4.0,
   gravitySoftness: 0.05,
   specular: true,
@@ -401,6 +385,10 @@ export class LiquidGlassEngine {
   private uniforms: Record<string, WebGLUniformLocation | null> = {};
   private textureWidth = 0;
   private textureHeight = 0;
+  private destroyed = false;
+  private capturing = false;
+  private recaptureQueued = false;
+  private recaptureTimer = 0;
 
   constructor(snapshotRootOrCanvas: HTMLElement | HTMLCanvasElement) {
     if (snapshotRootOrCanvas instanceof HTMLCanvasElement) {
@@ -494,37 +482,19 @@ export class LiquidGlassEngine {
     this._loop();
   }
 
-  /** Start with a one-time html2canvas snapshot */
+  /** Start with an html2canvas snapshot of the visible viewport */
   async startSnapshot() {
     if (!this.snapshotRoot) return;
-    const html2canvas = (await import('html2canvas')).default;
 
+    // First capture: keep the glass hidden until there is a texture to show
     this.overlayCanvas.style.visibility = 'hidden';
-
-    // Hide lens elements during capture
-    for (const l of this.lenses) {
-      l.element.style.visibility = 'hidden';
-    }
-
-    const snapCanvas = await html2canvas(this.snapshotRoot, {
-      allowTaint: false,
-      useCORS: true,
-      backgroundColor: null,
-      scale: Math.min(1.5, window.devicePixelRatio || 1),
-      ignoreElements: (el: Element) =>
-        el.hasAttribute('data-liquid-glass-overlay') ||
-        el.hasAttribute('data-liquid-glass-lens') ||
-        el.hasAttribute('data-liquid-glass-ignore'),
-    });
-
-    for (const l of this.lenses) {
-      l.element.style.visibility = 'visible';
-    }
-
-    // Upload once and start loop
-    this._uploadTexture(snapCanvas);
+    await this._capture();
+    if (this.destroyed) return;
     this.overlayCanvas.style.visibility = 'visible';
+
     this.liveSource = null; // not live — static texture
+    window.addEventListener('scroll', this._scheduleRecapture, { passive: true });
+    window.addEventListener('resize', this._scheduleRecapture, { passive: true });
     this._loop();
   }
 
@@ -533,8 +503,12 @@ export class LiquidGlassEngine {
   }
 
   destroy() {
+    this.destroyed = true;
     this.stop();
+    clearTimeout(this.recaptureTimer);
     window.removeEventListener('resize', this._resizeCanvas);
+    window.removeEventListener('scroll', this._scheduleRecapture);
+    window.removeEventListener('resize', this._scheduleRecapture);
     this.overlayCanvas.remove();
   }
 
@@ -544,6 +518,61 @@ export class LiquidGlassEngine {
     const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     this.overlayCanvas.width = innerWidth * dpr;
     this.overlayCanvas.height = innerHeight * dpr;
+  };
+
+  /**
+   * Capture only the visible viewport. The snapshot then lines up 1:1 with the
+   * overlay canvas, whatever the document height or scroll position is.
+   * html2canvas renders a clone of the document, so nothing has to be hidden in
+   * the real page. Lens elements are made invisible in the clone rather than
+   * ignored: ignoring removes them from layout, which shifts everything around
+   * them and leaves the snapshot misaligned with the page.
+   */
+  private async _capture() {
+    if (!this.snapshotRoot || this.capturing) {
+      this.recaptureQueued = this.capturing;
+      return;
+    }
+    this.capturing = true;
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const snapCanvas = await html2canvas(this.snapshotRoot, {
+        allowTaint: false,
+        useCORS: true,
+        backgroundColor: null,
+        logging: false,
+        scale: Math.min(1.5, window.devicePixelRatio || 1),
+        x: window.scrollX,
+        y: window.scrollY,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        ignoreElements: (el: Element) =>
+          el.hasAttribute('data-liquid-glass-overlay') ||
+          el.hasAttribute('data-liquid-glass-ignore'),
+        onclone: (clonedDoc: Document) => {
+          clonedDoc.querySelectorAll<HTMLElement>('[data-liquid-glass-lens]').forEach(el => {
+            el.style.visibility = 'hidden';
+          });
+        },
+      });
+      if (!this.destroyed && snapCanvas.width > 0 && snapCanvas.height > 0) {
+        this._uploadTexture(snapCanvas);
+      }
+    } catch (err) {
+      console.error('Liquid glass snapshot failed:', err);
+    } finally {
+      this.capturing = false;
+      if (this.recaptureQueued && !this.destroyed) {
+        this.recaptureQueued = false;
+        this._scheduleRecapture();
+      }
+    }
+  }
+
+  /** The snapshot is viewport-sized, so it goes stale on scroll or resize. */
+  private _scheduleRecapture = () => {
+    clearTimeout(this.recaptureTimer);
+    this.recaptureTimer = window.setTimeout(() => { void this._capture(); }, 180);
   };
 
   private _uploadTexture(src: HTMLCanvasElement | HTMLImageElement) {
@@ -591,8 +620,9 @@ export class LiquidGlassEngine {
     gl.uniform1f(this.uniforms.u_time, time);
 
     const dpr = Math.min(1.5, window.devicePixelRatio || 1);
-    const texW = this.liveSource?.width || this.overlayCanvas.width;
-    const texH = this.liveSource?.height || this.overlayCanvas.height;
+    if (this.textureWidth === 0 || this.textureHeight === 0) return;
+    const viewW = Math.max(1, window.innerWidth);
+    const viewH = Math.max(1, window.innerHeight);
 
     for (const lens of this.lenses) {
       const rect = lens.element.getBoundingClientRect();
@@ -607,14 +637,17 @@ export class LiquidGlassEngine {
       gl.scissor(x, y, w, h);
       gl.enable(gl.SCISSOR_TEST);
       gl.uniform2f(this.uniforms.u_resolution, w, h);
-      gl.uniform2f(this.uniforms.u_texResolution, texW, texH);
+      gl.uniform2f(this.uniforms.u_texResolution, this.textureWidth, this.textureHeight);
 
-      // Map element bounds → texture UV
-      const leftUV = (rect.left * dpr) / texW;
-      const topUV = (rect.top * dpr) / texH;
-      const wUV = w / texW;
-      const hUV = h / texH;
-      gl.uniform4f(this.uniforms.u_bounds, leftUV, topUV, wUV, hUV);
+      // Map element bounds → texture UV. The source covers the viewport, so
+      // this is independent of the texture's own pixel size.
+      gl.uniform4f(
+        this.uniforms.u_bounds,
+        rect.left / viewW,
+        rect.top / viewH,
+        rect.width / viewW,
+        rect.height / viewH,
+      );
 
       const c = lens.config;
       gl.uniform1f(this.uniforms.u_radius, c.cornerRadius * dpr);

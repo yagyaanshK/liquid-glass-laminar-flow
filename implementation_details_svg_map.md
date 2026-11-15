@@ -46,13 +46,15 @@ The blue channel is reserved for highlight information. `AaveLensGlass` extracts
 
 `AaveLensGlass` builds a per-lens SVG filter:
 
-1. `feImage` loads the generated map.
+1. `feImage` loads the generated map, placed with explicit px geometry (`0, 0, lensW, lensH`) so it covers exactly the lens box.
 2. Optional `feGaussianBlur` softens the sampled source.
-3. Three `feDisplacementMap` passes sample red, green, and blue shifted variants.
+3. Three `feDisplacementMap` passes sample red, green, and blue with scales of `base * (1 - d)`, `base`, and `base * (1 + d)`, where `base = max(scaleX, scaleY) * min(lensW, lensH)` and `d = chromaAmount * 0.14`. Dispersion is therefore symmetric around green and independent of the lens's aspect ratio.
 4. `feColorMatrix` isolates each color channel.
 5. `feComposite` combines the shifted channels into a chromatic-aberration result.
 6. A second `feColorMatrix` extracts the map's blue channel as a specular mask.
 7. The specular mask is composited over the refracted content.
+
+`feDisplacementMap` has a single `scale` for both axes. The per-axis `scaleX` / `scaleY` strengths are baked into the map's red and green channels (`axisScaleX`, `axisScaleY`) instead of being applied as different scales per color channel.
 
 This mirrors the production tradeoff described by Aave: generate a reusable displacement texture, then let the browser's SVG filter pipeline do component-sized work.
 
@@ -64,6 +66,8 @@ The wrapper renders two copies of the content:
 2. Lens overlay: pointer-transparent visual copy clipped to the lens shape.
 
 The overlay translates its copy by the negative lens offset, so the content inside the lens lines up with the same local region underneath. The real interactive controls are never distorted or made harder to click.
+
+The copy is marked `aria-hidden` and `inert`. `pointer-events: none` alone does not stop keyboard focus, so without `inert` every button and input in the copy would be a second, invisible tab stop.
 
 Additional visual layers add:
 

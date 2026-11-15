@@ -14,50 +14,98 @@ function roundedRectDistance(px: number, py: number, halfW: number, halfH: numbe
   return Math.hypot(ox, oy) + Math.min(Math.max(qx, qy), 0) - radius;
 }
 
+/** Outward unit normal of a rounded rectangle at (px, py): the SDF gradient. */
+function roundedRectNormal(px: number, py: number, halfW: number, halfH: number, radius: number) {
+  const qx = Math.abs(px) - halfW + radius;
+  const qy = Math.abs(py) - halfH + radius;
+  const sx = px < 0 ? -1 : 1;
+  const sy = py < 0 ? -1 : 1;
+  if (qx > 0 && qy > 0) {
+    const len = Math.max(0.0001, Math.hypot(qx, qy));
+    return [sx * (qx / len), sy * (qy / len)] as const;
+  }
+  return qx > qy ? ([sx, 0] as const) : ([0, sy] as const);
+}
+
 export interface DisplacementMapOptions {
   width: number;
   height: number;
   radius: number;
+  /** Bevel width as a fraction of the shorter side. */
   bevelWidth?: number;
+  /** Broad edge bend as a fraction of the shorter side. */
+  refraction?: number;
+  /** Extra bend at the very rim as a fraction of the shorter side. */
+  bevelDepth?: number;
 }
 
+export interface DisplacementMapResult {
+  url: string;
+  /** Value for feDisplacementMap's `scale`, in px. */
+  scale: number;
+}
+
+const EMPTY_MAP: DisplacementMapResult = { url: '', scale: 0 };
+
+/**
+ * Lens map for a rounded rectangle, sized 1:1 with the element it is applied to.
+ * It encodes the same convex bevel as the WebGL shader: the bend follows the
+ * shape's surface normal and samples toward the interior, strongest at the rim
+ * and zero across the flat centre.
+ */
 export function createRoundedGlassDisplacementMap({
   width,
   height,
   radius,
-  bevelWidth = 0.32,
-}: DisplacementMapOptions) {
+  bevelWidth = 0.18,
+  refraction = 0.05,
+  bevelDepth = 0.1,
+}: DisplacementMapOptions): DisplacementMapResult {
   const w = Math.max(2, Math.round(width));
   const h = Math.max(2, Math.round(height));
   const r = Math.max(0, Math.min(radius, Math.min(w, h) / 2));
-  const key = `${w}x${h}:${r}:${bevelWidth}`;
+  const strength = refraction + bevelDepth;
+  if (strength <= 0) return EMPTY_MAP;
+
+  const minSide = Math.min(w, h);
+  // feDisplacementMap moves a pixel by scale * (channel - 0.5), so `scale` is
+  // twice the largest displacement.
+  const scale = 2 * strength * minSide;
+  const key = `${w}x${h}:${r}:${bevelWidth}:${refraction}:${bevelDepth}`;
   const cached = mapCache.get(key);
-  if (cached) return cached;
+  if (cached) return { url: cached, scale };
 
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
+  if (!ctx) return EMPTY_MAP;
 
   const image = ctx.createImageData(w, h);
   const halfW = w / 2;
   const halfH = h / 2;
-  const bevelPx = Math.max(8, Math.min(w, h) * bevelWidth);
+  // Never let the bevel cross the medial axis, where the normal flips
+  const bevelPx = Math.max(1, Math.min(minSide * bevelWidth, minSide / 2));
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const px = x + 0.5 - halfW;
       const py = y + 0.5 - halfH;
       const distance = roundedRectDistance(px, py, halfW, halfH, r);
-      const inside = distance <= 0;
-      const edge = inside ? 1 - smoothstep(0, bevelPx, -distance) : 0;
-      const len = Math.max(0.001, Math.hypot(px, py));
-      const centerFade = smoothstep(0.08, 0.64, len / Math.max(halfW, halfH));
-      const force = edge * centerFade;
-      const dx = (px / len) * force;
-      const dy = (py / len) * force;
       const i = (y * w + x) * 4;
+      let dx = 0;
+      let dy = 0;
+
+      if (distance <= 0) {
+        const edge = 1 - smoothstep(0, bevelPx, -distance);
+        if (edge > 0) {
+          const amount = (edge * refraction + Math.pow(edge, 10) * bevelDepth) / strength;
+          const [nx, ny] = roundedRectNormal(px, py, halfW, halfH, r);
+          // Sample against the outward normal: toward the interior
+          dx = -nx * amount;
+          dy = -ny * amount;
+        }
+      }
 
       image.data[i] = Math.round(128 + dx * 127);
       image.data[i + 1] = Math.round(128 + dy * 127);
@@ -69,7 +117,7 @@ export function createRoundedGlassDisplacementMap({
   ctx.putImageData(image, 0, 0);
   const url = canvas.toDataURL('image/png');
   mapCache.set(key, url);
-  return url;
+  return { url, scale };
 }
 
 export interface AaveLensMapOptions {
@@ -79,6 +127,10 @@ export interface AaveLensMapOptions {
   mapSize?: number;
   depth?: number;
   domeDepth?: number;
+  /** Relative strength of the horizontal bend, 0..1 (feDisplacementMap has one scale for both axes). */
+  axisScaleX?: number;
+  /** Relative strength of the vertical bend, 0..1. */
+  axisScaleY?: number;
   splayAmount?: number;
   edgeFalloff?: boolean;
   specularRotation?: number;
@@ -128,6 +180,8 @@ export function createAaveLensDisplacementMap({
   mapSize = 512,
   depth = 32,
   domeDepth = 0,
+  axisScaleX = 1,
+  axisScaleY = 1,
   splayAmount = 1,
   edgeFalloff = true,
   specularRotation = 45,
@@ -149,6 +203,8 @@ export function createAaveLensDisplacementMap({
     size,
     depth,
     domeDepth,
+    axisScaleX,
+    axisScaleY,
     splayAmount,
     edgeFalloff,
     specularRotation,
@@ -224,8 +280,8 @@ export function createAaveLensDisplacementMap({
         falloff = 0.5 * (1 + erfApprox(innerDistance / (safeDepth * Math.SQRT2)));
       }
 
-      const channelX = Math.round((0.5 - 0.5 * normalX * falloff) * 255);
-      const channelY = Math.round((0.5 - 0.5 * normalY * falloff) * 255);
+      const channelX = Math.round((0.5 - 0.5 * normalX * falloff * axisScaleX) * 255);
+      const channelY = Math.round((0.5 - 0.5 * normalY * falloff * axisScaleY) * 255);
       data[index] = clamp(channelX, 0, 255);
       data[index + 1] = clamp(channelY, 0, 255);
 

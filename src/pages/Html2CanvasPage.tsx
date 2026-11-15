@@ -52,7 +52,7 @@ export default function Html2CanvasPage() {
           <div className="demo-panel-content" style={{ background: 'rgba(0,0,0,0.65)', borderRadius: 24, padding: '2.5rem', border: '1px solid rgba(255,255,255,0.08)' }}>
             <h2 style={{ color: '#fff' }}>Snapshot Glass</h2>
             <p style={{ color: 'rgba(255,255,255,0.7)', marginTop: '0.75rem' }}>
-              One-time DOM capture,<br />
+              Viewport DOM capture,<br />
               then GLSL refraction shader.
             </p>
           </div>
@@ -80,8 +80,9 @@ export default function Html2CanvasPage() {
 
         <div style={{ textAlign: 'center', marginTop: '2rem', padding: '1.25rem 2rem', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRadius: 16, maxWidth: 520, border: '1px solid rgba(255,255,255,0.08)' }}>
           <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 400, lineHeight: 1.6 }}>
-            ⚠ Static snapshot — the glass shows a frozen image of the background.
-            Scrolling or resizing won't update the refraction without re-capturing.
+            ⚠ Snapshot of the visible viewport — the glass shows a frozen image of the background.
+            It is re-captured shortly after scrolling or resizing stops; anything that animates
+            behind the glass stays frozen between captures.
           </p>
         </div>
       </div>

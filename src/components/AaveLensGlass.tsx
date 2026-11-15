@@ -71,6 +71,16 @@ export function AaveLensGlass({
   const rootRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const params = { ...DEFAULT_LENS, ...lens };
+
+  // feDisplacementMap has a single scale for both axes, so the per-axis
+  // strengths are baked into the map and one base scale drives every channel.
+  const maxAxisScale = Math.max(params.scaleX, params.scaleY, 0.0001);
+  const axisScaleX = params.scaleX / maxAxisScale;
+  const axisScaleY = params.scaleY / maxAxisScale;
+  const baseScale = maxAxisScale * Math.min(params.lensW, params.lensH);
+  // Dispersion is symmetric around green: red bends a little less, blue a little more.
+  const dispersion = params.chromaAmount * 0.14;
+  const blurred = params.blurAmount > 0.01;
   const mapUrl = useMemo(
     () => createAaveLensDisplacementMap({
       lensWidth: params.lensW,
@@ -79,6 +89,8 @@ export function AaveLensGlass({
       mapSize: params.mapSize,
       depth: params.depth,
       domeDepth: params.domeDepth,
+      axisScaleX,
+      axisScaleY,
       splayAmount: params.splayAmount,
       edgeFalloff: true,
       specularRotation: params.specularRotation,
@@ -96,6 +108,8 @@ export function AaveLensGlass({
       params.mapSize,
       params.depth,
       params.domeDepth,
+      axisScaleX,
+      axisScaleY,
       params.splayAmount,
       params.specularRotation,
       params.glowStrength,
@@ -157,8 +171,9 @@ export function AaveLensGlass({
       <svg width="0" height="0" className="aave-lens-defs" aria-hidden="true">
         <defs>
           <filter id={filterId} x="-18%" y="-18%" width="136%" height="136%" colorInterpolationFilters="sRGB">
-            <feImage href={mapUrl} x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map" />
-            {params.blurAmount > 0.01 && (
+            {/* Explicit px geometry: the map covers exactly the lens box of the filtered element */}
+            <feImage href={mapUrl} x="0" y="0" width={params.lensW} height={params.lensH} preserveAspectRatio="none" result="map" />
+            {blurred && (
               <feGaussianBlur
                 in="SourceGraphic"
                 stdDeviation={params.blurAmount}
@@ -169,9 +184,9 @@ export function AaveLensGlass({
             {params.chromaAmount > 0.01 ? (
               <>
                 <feDisplacementMap
-                  in={params.blurAmount > 0.01 ? 'blurred' : 'SourceGraphic'}
+                  in={blurred ? 'blurred' : 'SourceGraphic'}
                   in2="map"
-                  scale={params.scaleX * params.lensW * (1 + params.chromaAmount * 0.22)}
+                  scale={baseScale * (1 - dispersion)}
                   xChannelSelector="R"
                   yChannelSelector="G"
                   result="dispR"
@@ -183,9 +198,9 @@ export function AaveLensGlass({
                   result="rOnly"
                 />
                 <feDisplacementMap
-                  in={params.blurAmount > 0.01 ? 'blurred' : 'SourceGraphic'}
+                  in={blurred ? 'blurred' : 'SourceGraphic'}
                   in2="map"
-                  scale={params.scaleY * params.lensH * (1 + params.chromaAmount * 0.1)}
+                  scale={baseScale}
                   xChannelSelector="R"
                   yChannelSelector="G"
                   result="dispG"
@@ -197,9 +212,9 @@ export function AaveLensGlass({
                   result="gOnly"
                 />
                 <feDisplacementMap
-                  in={params.blurAmount > 0.01 ? 'blurred' : 'SourceGraphic'}
+                  in={blurred ? 'blurred' : 'SourceGraphic'}
                   in2="map"
-                  scale={(params.scaleX + params.scaleY) * 0.5 * Math.min(params.lensW, params.lensH)}
+                  scale={baseScale * (1 + dispersion)}
                   xChannelSelector="R"
                   yChannelSelector="G"
                   result="dispB"
@@ -215,9 +230,9 @@ export function AaveLensGlass({
               </>
             ) : (
               <feDisplacementMap
-                in={params.blurAmount > 0.01 ? 'blurred' : 'SourceGraphic'}
+                in={blurred ? 'blurred' : 'SourceGraphic'}
                 in2="map"
-                scale={(params.scaleX + params.scaleY) * 0.5 * Math.min(params.lensW, params.lensH)}
+                scale={baseScale}
                 xChannelSelector="R"
                 yChannelSelector="G"
                 result="lensResult"
@@ -245,6 +260,7 @@ export function AaveLensGlass({
                 transform: `translate(${-lensLeft + params.lensW / 2}px, ${-lensTop + params.lensH / 2}px)`,
               }}
               aria-hidden="true"
+              inert
             >
               {source}
             </div>

@@ -39,10 +39,23 @@ const loop = () => {
 The core of the effect happens on the GPU. The fragment shader calculates a Signed Distance Field (SDF) of the glass element (a rounded rectangle) and uses the resulting gradients to simulate light bending around the edges.
 
 **Key Visual Features in the Shader:**
-- **Refraction:** Displacing UV coordinates based on the SDF normal vector.
-- **Dispersion (Chromatic Aberration):** Sampling the red, green, and blue channels of the texture at slightly different offset vectors.
+- **Refraction:** Displacing the sample position along the shape's surface normal (the SDF gradient), toward the interior, like a convex bevel.
+- **Dispersion (Chromatic Aberration):** Sampling red slightly less displaced and blue slightly more displaced than green, along the same direction the lens bends.
 - **Specular Highlights:** Animated light streaks simulating reflections bouncing off the glass surface.
 - **Gravity Lens Field:** Optional black-hole-inspired radial displacement using a weak-field `theta^2 / r` formula, clipped by the existing SDF shapes.
+
+#### Units and Coordinate Spaces
+
+All shader math runs in **lens-local device pixels with y up** (the space the SDFs are defined in). Offsets are converted to texture UV only when sampling:
+
+```glsl
+vec2 pxToUv = u_bounds.zw / u_resolution;                      // lens UV size / lens px size
+vec2 refracted = mapped + vec2(offsetPx.x, -offsetPx.y) * pxToUv;   // texture v runs downward
+```
+
+- `refraction`, `bevelDepth` and `bevelWidth` are fractions of the lens's **shorter side**. The same config gives the same look on a lens of a given size regardless of viewport size or aspect ratio.
+- The bevel width is clamped to the shape's inradius, so the normal field never crosses the medial axis (which would show as a crease).
+- `u_bounds` is the lens rect divided by the viewport size. The source texture always covers the viewport, so this mapping does not depend on the texture's resolution.
 
 #### Gravity Lens Field Mode
 
@@ -51,23 +64,22 @@ The WebGL route includes an alternate field mode inspired by `s0xDk/ghostty-blac
 That project achieves smooth terminal lensing by running one full-screen fragment shader over Ghostty's terminal texture and remapping UV coordinates directly. This repo adapts the useful part of that idea as a bounded UI lens:
 
 ```glsl
-vec2 p = v_uv - 0.5;
-p.x *= aspect;
+vec2 p = p_px / u_resolution.y;          // lens-height units, aspect-correct
 float r = length(p);
-vec2 dir = normalize(p + 0.0001);
+vec2 dir = p / max(r, 0.0001);
 
 float defl = (theta * theta / max(r + softness, 0.01)) * exp(-r * r * falloff);
 defl *= boundaryFade;
 
-vec2 offset = vec2(-dir.x / aspect, -dir.y) * defl;
-vec2 refracted = mapped + offset;
+vec2 offsetPx = -dir * defl * u_resolution.y;   // back to px, toward the centre
+vec2 refracted = mapped + vec2(offsetPx.x, -offsetPx.y) * pxToUv;
 ```
 
 The important production detail is that the displacement field itself fades to zero before the SDF boundary. This avoids a visible seam at the clipped edge, which is smoother than blending warped and unwarped colors after sampling.
 
 Controls exposed in the drawer:
 
-- `Gravity Strength`: equivalent to the Einstein-radius term `theta`.
+- `Gravity Strength`: equivalent to the Einstein-radius term `theta`, measured in lens heights.
 - `Gravity Falloff`: damps the far field with `exp(-r*r*falloff)`.
 - `Gravity Softness`: clamps the center so the UI lens does not create a singular black-hole collapse.
 
@@ -106,7 +118,7 @@ export function WebGLDemo() {
 
     // 3. Register a DOM element to act as a "lens"
     if (panelRef.current) {
-        engine.addLens(panelRef.current, { cornerRadius: 40, refraction: 0.1 });
+        engine.addLens(panelRef.current, { cornerRadius: 40, refraction: 0.07 });
     }
 
     // 4. Start the live-sync loop
