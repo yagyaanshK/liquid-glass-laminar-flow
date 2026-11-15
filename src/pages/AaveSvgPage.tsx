@@ -1,5 +1,6 @@
 import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import { AaveLensGlass, type AaveLensParams } from '../components/AaveLensGlass';
+import { MotionPermissionButton } from '../components/MotionPermissionButton';
 import { useMediaQuery } from '../components/useGlassEnvironment';
 import { PageShell, DemoBackground } from '../components/PageShell';
 
@@ -230,6 +231,7 @@ export default function AaveSvgPage() {
               local copy of the component content. The buttons and inputs stay native, while the glass bends the UI
               underneath it.
             </p>
+            <MotionPermissionButton />
           </div>
 
           <AaveLensGlass

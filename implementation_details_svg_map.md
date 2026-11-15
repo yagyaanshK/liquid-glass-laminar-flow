@@ -84,7 +84,7 @@ Additional visual layers add:
 `AaveLensGlass` implements the Apple-style behaviours that are possible without reading backdrop pixels.
 
 - **Press response.** While the component is pressed (`interactive`, on by default) the lens scales to 1.07 on an overshooting curve and a glow layer lights up from the pointer. The pointer position is written to CSS variables (`--lens-press-x`, `--lens-press-y`), so tracking it does not re-render React.
-- **One light direction.** `specularRotation` drives both the specular channel baked into the map and the CSS sheen and rim (`--lens-light-x`, `--lens-light-y`, `--lens-light-rot`), so they always agree. Device tilt shifts the angle in 15° steps within ±30°; the steps are coarse because each distinct angle needs its own generated map.
+- **One light direction.** `specularRotation` drives both the specular channel baked into the map and the CSS sheen and rim (`--lens-light-x`, `--lens-light-y`, `--lens-light-rot`), so they always agree. Device tilt shifts the angle in 15° steps within ±30°; the steps are coarse because each distinct angle needs its own generated map. On iOS, tilt needs a permission prompt first; the page shows `MotionPermissionButton` only where that is the case.
 - **Accessibility variants.** On this route the content sits *under* the lens, so legibility means less optics rather than more frost:
   - `prefers-reduced-transparency: reduce` and `prefers-contrast: more` — no blur, no dispersion, displacement cut to 35%, sheen pulled back, and the lens body stops tinting what it covers.
   - `prefers-contrast: more` — additionally drops the specular layers and draws a solid 2px outline.

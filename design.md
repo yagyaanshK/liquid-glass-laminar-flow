@@ -324,6 +324,9 @@ Beyond refraction, the engine implements the Apple behaviours listed below; `imp
 | **Press response** | Spring-driven CSS `scale` on the lens element plus a pointer glow |
 | **Materialize** | Refraction ramps in from zero instead of a plain fade |
 | **Accessibility** | `prefers-reduced-motion`, `prefers-reduced-transparency`, `prefers-contrast` each switch the optics |
+| **Glass over DOM** | `addBackdrop()` composites DOM elements into the scene the glass refracts: live through HTML-in-canvas where available, html2canvas snapshot elsewhere |
+| **Vibrancy** | `--glass-fg` / `--glass-fg-secondary` on each lens, derived from the measured backdrop colour |
+| **Scroll edge** | Progressive blur and fade under the top bar instead of a hard divider (`PageShell`) |
 
 ### Frost (Gaussian Blur)
 ```glsl

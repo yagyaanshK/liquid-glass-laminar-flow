@@ -12,6 +12,12 @@
  * Lenses are drawn in groups. A group is one draw call whose shapes are joined
  * with a smooth union, so lenses that share a `group` melt into each other when
  * they get close. A lens without a group is a group of one.
+ *
+ * DOM content can sit behind the glass too. Elements registered with
+ * addBackdrop() are kept as textures and composited over the source, at their
+ * live position, into a "scene" texture that the glass then refracts. A
+ * backdrop is either live (drawn by the browser through the HTML-in-canvas
+ * API) or an html2canvas snapshot that is re-captured when it changes.
  */
 
 // ─── GLSL Shaders ────────────────────────────────────────────────────────────
@@ -24,6 +30,26 @@ const VERTEX_SHADER = `
   void main() {
     v_uv = (a_position + 1.0) * 0.5;
     gl_Position = vec4(a_position, 0.0, 1.0);
+  }
+`;
+
+// Draws a texture into a rectangle of the current target (used to build the scene)
+const BLIT_VERTEX_SHADER = `
+  attribute vec2 a_position;
+  uniform vec4 u_rect;   // x, y, w, h in clip space
+  varying vec2 v_uv;
+  void main() {
+    v_uv = (a_position + 1.0) * 0.5;
+    gl_Position = vec4(u_rect.xy + v_uv * u_rect.zw, 0.0, 1.0);
+  }
+`;
+
+const BLIT_FRAGMENT_SHADER = `
+  precision mediump float;
+  varying vec2 v_uv;
+  uniform sampler2D u_texture;
+  void main() {
+    gl_FragColor = texture2D(u_texture, v_uv);
   }
 `;
 
@@ -61,6 +87,7 @@ const FRAGMENT_SHADER = `
 
   uniform vec3  u_tintColor;       // adapts between dark and light with the backdrop
   uniform float u_tintAmount;
+  uniform float u_scheme;          // 0 = dark glass, 1 = light glass
   uniform float u_specular;        // rim light strength
   uniform vec2  u_lightDir;        // unit vector toward the light, y up
   uniform float u_rimPx;           // rim light thickness in px
@@ -310,12 +337,13 @@ const FRAGMENT_SHADER = `
       float f = pow(edge, 3.0) * u_fresnel * 0.3;
       vec2 mirrorPx = normal * (2.0 * inside + 2.0);
       vec3 refl = texture2D(u_texture, baseUv + vec2(mirrorPx.x, -mirrorPx.y) * pxToUv).rgb;
-      col = mix(col, mix(refl, vec3(1.0), 0.55), f);
+      // On light glass the white share drops, or the whole bevel washes out
+      col = mix(col, mix(refl, vec3(1.0), mix(0.55, 0.1, u_scheme)), f);
     }
 
-    // Edge highlight
+    // Edge highlight (additive white, so it only helps on dark glass)
     if (u_edgeHighlight > 0.0) {
-      col += pow(edge, 4.0) * u_edgeHighlight;
+      col += pow(edge, 4.0) * u_edgeHighlight * (1.0 - 0.85 * u_scheme);
     }
 
     // Rim light: a thin specular line where the rim faces the light, a dimmer
@@ -326,6 +354,15 @@ const FRAGMENT_SHADER = `
       float rim = 1.0 - smoothstep(0.0, u_rimPx, inside);
       float sheen = pow(edge, 3.0) * 0.18 * pow(max(facing, 0.0), 1.5);
       col += u_specular * (rim * 0.85 * lit * lit + sheen);
+    }
+
+    // Light glass: a white highlight cannot define an edge against a bright
+    // backdrop, so the bevel is shaded instead, most on the side facing away
+    // from the light. This is what keeps the rim readable on light content.
+    if (u_scheme > 0.0 && edge > 0.0) {
+      float away = 0.35 + 0.65 * max(-dot(normal, u_lightDir), 0.0);
+      float rimShade = 1.0 - smoothstep(0.0, u_rimPx * 1.5, inside);
+      col *= 1.0 - u_scheme * (0.10 * edge * edge + 0.22 * rimShade) * away;
     }
 
     // Pointer glow: light spreads from the touch point and catches the bevel
@@ -461,10 +498,70 @@ export interface LensRegistration {
   config: GlassConfig;
 }
 
+export interface EngineOptions {
+  /**
+   * Where the glass canvas goes in the page. By default it is appended to
+   * <body> at z-index -1, under all DOM content, which is right when the glass
+   * only refracts a canvas. To put glass over DOM content, give it a parent
+   * inside the page's stacking context and a z-index above the backdrop
+   * elements; lens elements then need a higher z-index than the canvas so
+   * their own content stays on top of the glass. The canvas is
+   * `position: fixed`, so no ancestor of the parent may have a transform or filter.
+   */
+  overlayParent?: HTMLElement;
+  overlayZIndex?: number;
+}
+
+export interface BackdropOptions {
+  /**
+   * Live mode. Pass the `drawable` child of a `<canvas content="drawable">`
+   * (and the canvas itself as the backdrop element): the browser paints the
+   * child into the canvas through the HTML-in-canvas API and the engine uploads
+   * it whenever it repaints. Omit it to use an html2canvas snapshot instead.
+   */
+  liveContent?: HTMLElement;
+}
+
+/** The parts of the experimental HTML-in-canvas API the engine uses */
+interface DrawableCanvas extends HTMLCanvasElement {
+  onpaint: (() => void) | null;
+  requestPaint(): void;
+}
+interface ElementImageContext extends CanvasRenderingContext2D {
+  drawElementImage(element: Element, dx: number, dy: number, dwidth: number, dheight: number): void;
+}
+
+/** True when the browser can paint DOM elements into a canvas (HTML-in-canvas). */
+export function supportsHtmlInCanvas(): boolean {
+  return (
+    typeof HTMLCanvasElement !== 'undefined' &&
+    typeof CanvasRenderingContext2D !== 'undefined' &&
+    'requestPaint' in HTMLCanvasElement.prototype &&
+    'drawElementImage' in CanvasRenderingContext2D.prototype
+  );
+}
+
+/** A DOM element kept as a texture and composited behind the glass */
+interface BackdropState {
+  element: HTMLElement;    // its client rect places the texture each frame
+  texture: WebGLTexture;
+  width: number;
+  height: number;
+  ready: boolean;
+  live: boolean;
+  dirty: boolean;          // live: the source canvas repainted since the last upload
+  capturing: boolean;
+  recaptureQueued: boolean;
+  timer: number;
+  detach: () => void;
+}
+
 /** Per-lens animation and measurement state */
 interface LensState extends LensRegistration {
   luma: number;            // smoothed backdrop luminance under the lens, 0–1
   contrast: number;        // smoothed backdrop busyness, 0–1
+  color: [number, number, number];   // smoothed average backdrop colour, 0–1
+  appliedVibrancy: string;
   hasMetrics: boolean;
   scheme: number;          // 0 = dark glass, 1 = light glass (animated)
   schemeTarget: 0 | 1;
@@ -579,7 +676,13 @@ export class LiquidGlassEngine {
   private gl: WebGLRenderingContext;
   private program: WebGLProgram;
   private metricsProgram: WebGLProgram;
+  private blitProgram: WebGLProgram;
   private texture: WebGLTexture;
+  private sceneTexture: WebGLTexture;
+  private sceneFbo: WebGLFramebuffer;
+  private sceneWidth = 0;
+  private sceneHeight = 0;
+  private backdrops: BackdropState[] = [];
   private metricsTexture: WebGLTexture;
   private metricsFbo: WebGLFramebuffer;
   private metricsPixels = new Uint8Array(METRICS_MAX_LENSES * METRICS_CELLS * METRICS_CELLS * 4);
@@ -589,6 +692,7 @@ export class LiquidGlassEngine {
   private snapshotRoot: HTMLElement | null = null;
   private uniforms = new Map<string, WebGLUniformLocation | null>();
   private metricsUniforms = new Map<string, WebGLUniformLocation | null>();
+  private blitUniforms = new Map<string, WebGLUniformLocation | null>();
   private shapeBoxes = new Float32Array(MAX_SHAPES * 4);
   private shapeParams = new Float32Array(MAX_SHAPES * 4);
   private textureWidth = 0;
@@ -607,7 +711,7 @@ export class LiquidGlassEngine {
     moreContrast: window.matchMedia('(prefers-contrast: more)'),
   };
 
-  constructor(snapshotRootOrCanvas: HTMLElement | HTMLCanvasElement) {
+  constructor(snapshotRootOrCanvas: HTMLElement | HTMLCanvasElement, options: EngineOptions = {}) {
     if (snapshotRootOrCanvas instanceof HTMLCanvasElement) {
       this.liveSource = snapshotRootOrCanvas;
     } else {
@@ -620,10 +724,10 @@ export class LiquidGlassEngine {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
       pointer-events: none;
-      z-index: -1;
+      z-index: ${options.overlayZIndex ?? -1};
     `;
     this.overlayCanvas.setAttribute('data-liquid-glass-overlay', '');
-    document.body.appendChild(this.overlayCanvas);
+    (options.overlayParent ?? document.body).appendChild(this.overlayCanvas);
 
     // Init WebGL
     const gl = this.overlayCanvas.getContext('webgl', {
@@ -636,9 +740,11 @@ export class LiquidGlassEngine {
 
     const prog = createProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER);
     const metricsProg = createProgram(gl, VERTEX_SHADER, METRICS_FRAGMENT_SHADER);
-    if (!prog || !metricsProg) throw new Error('Shader compilation failed');
+    const blitProg = createProgram(gl, BLIT_VERTEX_SHADER, BLIT_FRAGMENT_SHADER);
+    if (!prog || !metricsProg || !blitProg) throw new Error('Shader compilation failed');
     this.program = prog;
     this.metricsProgram = metricsProg;
+    this.blitProgram = blitProg;
 
     // Fullscreen quad
     const buf = gl.createBuffer()!;
@@ -667,13 +773,16 @@ export class LiquidGlassEngine {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.metricsTexture, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
+    // Scene target: the source with DOM backdrops composited over it.
+    // Allocated on first use, at the overlay's size.
+    this.sceneTexture = this._createTexture();
+    this.sceneFbo = gl.createFramebuffer()!;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.sceneTexture, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
     // Source texture
-    this.texture = gl.createTexture()!;
-    gl.bindTexture(gl.TEXTURE_2D, this.texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.texture = this._createTexture();
 
     this._resizeCanvas();
     window.addEventListener('resize', this._resizeCanvas, { passive: true });
@@ -689,6 +798,8 @@ export class LiquidGlassEngine {
       config: { ...DEFAULT_CONFIG, ...config },
       luma: 0,
       contrast: 0,
+      color: [0, 0, 0],
+      appliedVibrancy: '',
       hasMetrics: false,
       scheme: 0,
       schemeTarget: 0,
@@ -719,6 +830,52 @@ export class LiquidGlassEngine {
   updateLensConfig(element: HTMLElement, config: Partial<GlassConfig>) {
     const lens = this.lenses.find(l => l.element === element);
     if (lens) Object.assign(lens.config, config);
+  }
+
+  /**
+   * Put a DOM element behind the glass. Its rendering is kept as a texture and
+   * drawn at the element's current position every frame, so it follows
+   * scrolling and layout without being re-captured.
+   *
+   * Snapshot mode (default) captures it with html2canvas and re-captures when
+   * it resizes or its text / children change; other visual changes (hover
+   * states, CSS animations) need refreshBackdrops(). Live mode (see
+   * BackdropOptions.liveContent) has no such limit.
+   */
+  addBackdrop(element: HTMLElement, options: BackdropOptions = {}) {
+    if (this.backdrops.some(b => b.element === element)) return;
+    const backdrop: BackdropState = {
+      element,
+      texture: this._createTexture(),
+      width: 0,
+      height: 0,
+      ready: false,
+      live: false,
+      dirty: false,
+      capturing: false,
+      recaptureQueued: false,
+      timer: 0,
+      detach: () => {},
+    };
+    const live = options.liveContent && element instanceof HTMLCanvasElement && supportsHtmlInCanvas();
+    backdrop.detach = live
+      ? this._attachLiveBackdrop(backdrop, element as DrawableCanvas, options.liveContent!)
+      : this._attachSnapshotBackdrop(backdrop);
+    this.backdrops.push(backdrop);
+  }
+
+  removeBackdrop(element: HTMLElement) {
+    for (const backdrop of this.backdrops) {
+      if (backdrop.element === element) this._releaseBackdrop(backdrop);
+    }
+    this.backdrops = this.backdrops.filter(b => b.element !== element);
+  }
+
+  /** Re-capture every snapshot backdrop (live ones update themselves). */
+  refreshBackdrops() {
+    for (const backdrop of this.backdrops) {
+      if (!backdrop.live) void this._captureBackdrop(backdrop);
+    }
   }
 
   /** Start with a live canvas source — re-reads texture every frame */
@@ -757,6 +914,8 @@ export class LiquidGlassEngine {
     window.removeEventListener('resize', this._scheduleRecapture);
     for (const lens of this.lenses) this._releaseLens(lens);
     this.lenses = [];
+    for (const backdrop of this.backdrops) this._releaseBackdrop(backdrop);
+    this.backdrops = [];
     this.overlayCanvas.remove();
   }
 
@@ -797,7 +956,184 @@ export class LiquidGlassEngine {
     lens.detach();
     lens.element.removeAttribute('data-liquid-glass-lens');
     lens.element.removeAttribute('data-glass-scheme');
+    lens.element.style.removeProperty('--glass-fg');
+    lens.element.style.removeProperty('--glass-fg-secondary');
     if (lens.appliedScale) lens.element.style.removeProperty('scale');
+  }
+
+  // ── Private: DOM backdrops ──
+
+  /**
+   * Live backdrop. `canvas` is a <canvas content="drawable"> and `content` its
+   * `drawable` child. The browser fires `paint` whenever the child would render
+   * differently; we redraw it into the canvas (which is what the user sees, and
+   * what keeps the child interactive) and flag the texture for upload.
+   */
+  private _attachLiveBackdrop(backdrop: BackdropState, canvas: DrawableCanvas, content: HTMLElement) {
+    backdrop.live = true;
+    const ctx = canvas.getContext('2d') as ElementImageContext | null;
+    if (!ctx) return () => {};
+
+    const paint = () => {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const width = Math.max(1, Math.round(canvas.clientWidth * dpr));
+      const height = Math.max(1, Math.round(canvas.clientHeight * dpr));
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      ctx.clearRect(0, 0, width, height);
+      try {
+        ctx.drawElementImage(content, 0, 0, width, height);
+        backdrop.dirty = true;
+      } catch {
+        // The browser has not recorded a snapshot of the element yet; a later paint will have one
+      }
+    };
+
+    canvas.onpaint = paint;
+    // A resize clears the canvas without necessarily firing `paint`
+    const observer = new ResizeObserver(() => canvas.requestPaint());
+    observer.observe(canvas);
+    canvas.requestPaint();
+
+    return () => {
+      observer.disconnect();
+      canvas.onpaint = null;
+    };
+  }
+
+  /** Snapshot backdrop: capture now, and again when the element resizes or its content changes */
+  private _attachSnapshotBackdrop(backdrop: BackdropState) {
+    const schedule = () => {
+      clearTimeout(backdrop.timer);
+      backdrop.timer = window.setTimeout(() => { void this._captureBackdrop(backdrop); }, 200);
+    };
+    const resizeObserver = new ResizeObserver(schedule);
+    resizeObserver.observe(backdrop.element);
+    // Text and structure only. Attribute changes are skipped on purpose: the
+    // engine itself writes attributes and styles on lens elements every frame.
+    const mutationObserver = new MutationObserver(schedule);
+    mutationObserver.observe(backdrop.element, { childList: true, characterData: true, subtree: true });
+    void this._captureBackdrop(backdrop);
+
+    return () => {
+      clearTimeout(backdrop.timer);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }
+
+  private async _captureBackdrop(backdrop: BackdropState) {
+    if (this.destroyed) return;
+    if (backdrop.capturing) {
+      backdrop.recaptureQueued = true;
+      return;
+    }
+    backdrop.capturing = true;
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(backdrop.element, {
+        allowTaint: false,
+        useCORS: true,
+        backgroundColor: null,
+        logging: false,
+        scale: Math.min(2, window.devicePixelRatio || 1),
+        ignoreElements: (el: Element) =>
+          el.hasAttribute('data-liquid-glass-overlay') ||
+          el.hasAttribute('data-liquid-glass-ignore'),
+        onclone: (clonedDoc: Document) => {
+          clonedDoc.querySelectorAll<HTMLElement>('[data-liquid-glass-lens]').forEach(el => {
+            el.style.visibility = 'hidden';
+          });
+        },
+      });
+      if (!this.destroyed && this.backdrops.includes(backdrop) && canvas.width > 0 && canvas.height > 0) {
+        this._uploadBackdrop(backdrop, canvas);
+      }
+    } catch (err) {
+      console.error('Liquid glass backdrop capture failed:', err);
+    } finally {
+      backdrop.capturing = false;
+      if (backdrop.recaptureQueued && !this.destroyed) {
+        backdrop.recaptureQueued = false;
+        void this._captureBackdrop(backdrop);
+      }
+    }
+  }
+
+  private _uploadBackdrop(backdrop: BackdropState, source: HTMLCanvasElement) {
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, backdrop.texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    // Backdrops have transparency; premultiply so they filter and blend correctly
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    if (source.width !== backdrop.width || source.height !== backdrop.height) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      backdrop.width = source.width;
+      backdrop.height = source.height;
+    } else {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    }
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    backdrop.ready = true;
+    backdrop.dirty = false;
+  }
+
+  private _releaseBackdrop(backdrop: BackdropState) {
+    backdrop.detach();
+    this.gl.deleteTexture(backdrop.texture);
+  }
+
+  /**
+   * Build the scene the glass refracts: the source, with every ready backdrop
+   * drawn over it where its element currently is. Rows are stored top-first,
+   * like an uploaded canvas, so the glass shader can sample either the same way.
+   */
+  private _composeScene(viewW: number, viewH: number) {
+    const gl = this.gl;
+    const width = this.overlayCanvas.width;
+    const height = this.overlayCanvas.height;
+    if (width !== this.sceneWidth || height !== this.sceneHeight) {
+      gl.bindTexture(gl.TEXTURE_2D, this.sceneTexture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      this.sceneWidth = width;
+      this.sceneHeight = height;
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFbo);
+    gl.viewport(0, 0, width, height);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.useProgram(this.blitProgram);
+    gl.uniform1i(this._blitUniform('u_texture'), 0);
+
+    // The source fills the scene
+    gl.disable(gl.BLEND);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.uniform4f(this._blitUniform('u_rect'), -1, -1, 2, 2);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // Backdrops, premultiplied, at their live client rects (top-first rows:
+    // the top of the viewport is the bottom of clip space)
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    for (const backdrop of this.backdrops) {
+      if (!backdrop.ready) continue;
+      const rect = backdrop.element.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+      if (rect.bottom < 0 || rect.top > viewH || rect.right < 0 || rect.left > viewW) continue;
+      gl.bindTexture(gl.TEXTURE_2D, backdrop.texture);
+      gl.uniform4f(
+        this._blitUniform('u_rect'),
+        -1 + (2 * rect.left) / viewW,
+        -1 + (2 * rect.top) / viewH,
+        (2 * rect.width) / viewW,
+        (2 * rect.height) / viewH,
+      );
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+    gl.disable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
   // ── Private: resources ──
@@ -887,6 +1223,26 @@ export class LiquidGlassEngine {
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src);
   }
 
+  private _createTexture() {
+    const gl = this.gl;
+    const texture = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return texture;
+  }
+
+  private _blitUniform(name: string) {
+    let location = this.blitUniforms.get(name);
+    if (location === undefined) {
+      location = this.gl.getUniformLocation(this.blitProgram, name);
+      this.blitUniforms.set(name, location);
+    }
+    return location;
+  }
+
   private _uniform(name: string) {
     let location = this.uniforms.get(name);
     if (location === undefined) {
@@ -945,10 +1301,27 @@ export class LiquidGlassEngine {
     const viewH = Math.max(1, window.innerHeight);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+
+    // Live backdrops that repainted since the last frame
+    for (const backdrop of this.backdrops) {
+      if (backdrop.live && backdrop.dirty) {
+        const source = backdrop.element as HTMLCanvasElement;
+        if (source.width > 0 && source.height > 0) this._uploadBackdrop(backdrop, source);
+      }
+    }
+
+    // With DOM backdrops the glass refracts the composed scene; without any it
+    // reads the source directly and the extra pass is skipped.
+    const useScene = this.backdrops.some(b => b.ready);
+    if (useScene) this._composeScene(viewW, viewH);
+    const sourceTexture = useScene ? this.sceneTexture : this.texture;
+    const sourceWidth = useScene ? this.sceneWidth : this.textureWidth;
+    const sourceHeight = useScene ? this.sceneHeight : this.textureHeight;
+    gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
 
     if (this.frameCount % METRICS_INTERVAL === 1) {
       this._sampleBackdrop(frames, viewW, viewH);
+      gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
     }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -961,7 +1334,7 @@ export class LiquidGlassEngine {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // premultiplied
     gl.useProgram(this.program);
     gl.uniform1i(this._uniform('u_texture'), 0);
-    gl.uniform2f(this._uniform('u_texResolution'), this.textureWidth, this.textureHeight);
+    gl.uniform2f(this._uniform('u_texResolution'), sourceWidth, sourceHeight);
 
     // Lenses that share a group draw together; everything else draws alone
     const groups: LensFrame[][] = [];
@@ -1030,9 +1403,35 @@ export class LiquidGlassEngine {
       lens.element.setAttribute('data-glass-scheme', schemeName);
       lens.appliedScheme = schemeName;
     }
+    this._applyVibrancy(lens);
 
     // Materialize in
     lens.appear = env.reduceMotion ? 1 : Math.min(1, lens.appear + dt / 0.45);
+  }
+
+  /**
+   * Vibrancy: foreground colours for content on the glass, derived from what is
+   * behind it. `--glass-fg` is the primary colour (near white on dark glass,
+   * near black on light). `--glass-fg-secondary` takes the backdrop's own hue,
+   * saturates it and pushes it toward the primary, so secondary text looks
+   * tinted by the content under the glass instead of flat grey.
+   */
+  private _applyVibrancy(lens: LensState) {
+    const light = lens.schemeTarget === 1;
+    const [r, g, b] = lens.color;
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    const toward = light ? 0 : 1;
+    const channel = (value: number) => {
+      const saturated = clamp(luma + (value - luma) * 2.2, 0, 1);
+      // Quantized so tiny backdrop changes do not rewrite the style every frame
+      return Math.round((mix(saturated, toward, 0.58) * 255) / 6) * 6;
+    };
+    const key = `${light ? 'l' : 'd'}:${channel(r)},${channel(g)},${channel(b)}`;
+    if (key === lens.appliedVibrancy) return;
+    lens.appliedVibrancy = key;
+    const style = lens.element.style;
+    style.setProperty('--glass-fg', light ? 'rgba(11, 15, 20, 0.92)' : 'rgba(255, 255, 255, 0.94)');
+    style.setProperty('--glass-fg-secondary', `rgba(${channel(r)}, ${channel(g)}, ${channel(b)}, 0.86)`);
   }
 
   /**
@@ -1069,15 +1468,22 @@ export class LiquidGlassEngine {
     for (let i = 0; i < count; i++) {
       let sum = 0;
       let sumSq = 0;
+      let sumR = 0;
+      let sumG = 0;
+      let sumB = 0;
       for (let y = 0; y < METRICS_CELLS; y++) {
         for (let x = 0; x < METRICS_CELLS; x++) {
           const o = y * rowStride + (i * METRICS_CELLS + x) * 4;
           const luma = (0.2126 * pixels[o] + 0.7152 * pixels[o + 1] + 0.0722 * pixels[o + 2]) / 255;
           sum += luma;
           sumSq += luma * luma;
+          sumR += pixels[o];
+          sumG += pixels[o + 1];
+          sumB += pixels[o + 2];
         }
       }
       const mean = sum / cells;
+      const average: [number, number, number] = [sumR / cells / 255, sumG / cells / 255, sumB / cells / 255];
       const deviation = Math.sqrt(Math.max(0, sumSq / cells - mean * mean));
       const contrast = clamp(deviation / 0.2, 0, 1);
 
@@ -1085,6 +1491,7 @@ export class LiquidGlassEngine {
       if (!lens.hasMetrics) {
         lens.luma = mean;
         lens.contrast = contrast;
+        lens.color = average;
         lens.hasMetrics = true;
         // Start in the right scheme instead of animating in from dark
         lens.schemeTarget = lens.config.adaptive && mean > 0.52 ? 1 : 0;
@@ -1092,6 +1499,11 @@ export class LiquidGlassEngine {
       } else {
         lens.luma = mix(lens.luma, mean, 0.35);
         lens.contrast = mix(lens.contrast, contrast, 0.35);
+        lens.color = [
+          mix(lens.color[0], average[0], 0.35),
+          mix(lens.color[1], average[1], 0.35),
+          mix(lens.color[2], average[2], 0.35),
+        ];
       }
     }
   }
@@ -1264,6 +1676,7 @@ export class LiquidGlassEngine {
       mix(DARK_GLASS[2], LIGHT_GLASS[2], scheme),
     );
     gl.uniform1f(this._uniform('u_tintAmount'), clamp(tint, 0, 1));
+    gl.uniform1f(this._uniform('u_scheme'), scheme);
 
     // Rim light
     const lightAngle = ((c.lightAngle + this.tilt) * Math.PI) / 180;

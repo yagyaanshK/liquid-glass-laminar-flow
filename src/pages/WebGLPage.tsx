@@ -2,7 +2,9 @@ import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 're
 import { PageShell } from '../components/PageShell';
 import { GlassControls } from '../components/GlassControls';
 import { ControlsDrawer } from '../components/ControlsDrawer';
-import { LiquidGlassEngine, DEFAULT_CONFIG, type GlassConfig } from '../engine/LiquidGlassEngine';
+import { GlassBackdrop, type GlassBackdropHandle } from '../components/GlassBackdrop';
+import { MotionPermissionButton } from '../components/MotionPermissionButton';
+import { LiquidGlassEngine, DEFAULT_CONFIG, supportsHtmlInCanvas, type GlassConfig } from '../engine/LiquidGlassEngine';
 import { BackgroundCanvas, type BackgroundTheme } from '../engine/BackgroundCanvas';
 
 const GRAVITY_MODE_CONFIG: Partial<GlassConfig> = {
@@ -46,6 +48,17 @@ function getInitialBackdrop(): BackgroundTheme {
   return getHashParams().get('backdrop') === 'light' ? 'light' : 'dark';
 }
 
+// `?dom=snapshot` forces the html2canvas fallback, to compare it with the live path
+function getDomMode(): 'auto' | 'snapshot' {
+  return getHashParams().get('dom') === 'snapshot' ? 'snapshot' : 'auto';
+}
+
+// A capsule that drifts over real DOM content
+const DOM_LENS_OVERRIDES: Partial<GlassConfig> = {
+  shape: 'rect',
+  cornerRadius: 999,
+};
+
 interface LensDef {
   ref: RefObject<HTMLDivElement | null>;
   overrides: Partial<GlassConfig>;
@@ -58,18 +71,25 @@ export default function WebGLPage() {
   const panelRef = useRef<HTMLDivElement>(null);
   const mergeBarRef = useRef<HTMLDivElement>(null);
   const mergeOrbRef = useRef<HTMLDivElement>(null);
+  const domLensRef = useRef<HTMLDivElement>(null);
+  const domBackdropRef = useRef<GlassBackdropHandle>(null);
+  const [domMode] = useState(getDomMode);
+  const [taps, setTaps] = useState(0);
+  const domIsLive = domMode === 'auto' && supportsHtmlInCanvas();
   const circleRef = useRef<HTMLDivElement>(null);
   const ellipseRef = useRef<HTMLDivElement>(null);
   const triangleRef = useRef<HTMLDivElement>(null);
   const hexagonRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<LiquidGlassEngine | null>(null);
   const bgRef = useRef<BackgroundCanvas | null>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
 
   // Every lens on the page, with what it overrides from the shared config
   const [lensDefs] = useState<LensDef[]>(() => [
     { ref: panelRef, overrides: { shape: 'rect' } },
     { ref: mergeBarRef, overrides: MERGE_OVERRIDES },
     { ref: mergeOrbRef, overrides: MERGE_OVERRIDES },
+    { ref: domLensRef, overrides: DOM_LENS_OVERRIDES },
     { ref: circleRef, overrides: { shape: 'circle' } },
     { ref: ellipseRef, overrides: { shape: 'ellipse' } },
     { ref: triangleRef, overrides: { shape: 'triangle' } },
@@ -84,8 +104,18 @@ export default function WebGLPage() {
     bg.start();
 
     // 2. Create the WebGL engine, giving it the background canvas as the texture source
-    const engine = new LiquidGlassEngine(bg.canvas);
+    // The glass canvas goes inside the demo area, above its DOM content and
+    // below the lens elements (see .glass-above-dom in index.css), so glass can
+    // sit over the DOM card as well as over the canvas.
+    const engine = new LiquidGlassEngine(bg.canvas, {
+      overlayParent: areaRef.current ?? undefined,
+      overlayZIndex: 1,
+    });
     engineRef.current = engine;
+
+    // DOM content the glass should refract, on top of the canvas
+    const domBackdrop = domBackdropRef.current;
+    if (domBackdrop) engine.addBackdrop(domBackdrop.element, { liveContent: domBackdrop.liveContent });
 
     // 3. Register lens elements after layout has settled.
     let frameA = 0;
@@ -125,7 +155,7 @@ export default function WebGLPage() {
     <PageShell title="WebGL Shader" badge="WebGL + GLSL" badgeColor="#ff6b4a">
       {/* No DOM background needed — BackgroundCanvas renders it */}
 
-      <div className="demo-area" style={{
+      <div ref={areaRef} className="demo-area glass-above-dom" style={{
         paddingTop: '6rem',
         paddingBottom: '10rem',
         display: 'flex',
@@ -154,6 +184,7 @@ export default function WebGLPage() {
           <small className="field-mode-note">
             Adaptive glass reads what is behind it and flips its tint, shadow and label colour to match.
           </small>
+          <MotionPermissionButton />
         </div>
 
         <div className="webgl-showcase">
@@ -174,15 +205,46 @@ export default function WebGLPage() {
           {/* Merging group */}
           <div className="webgl-shape-stage">
             <div className="webgl-merge-stage">
-              <div ref={mergeBarRef} className="webgl-merge-bar">
+              <div ref={mergeBarRef} className="webgl-merge-bar glass-vibrant">
                 <span>Library</span>
                 <span>Search</span>
                 <span>Radio</span>
               </div>
-              <div ref={mergeOrbRef} className="webgl-merge-orb" aria-hidden="true">+</div>
+              <div ref={mergeOrbRef} className="webgl-merge-orb glass-vibrant" aria-hidden="true">+</div>
             </div>
             <p className="webgl-stage-caption">
               Merging: both capsules share one group, so they are one smooth-union SDF and blend as they meet.
+            </p>
+          </div>
+
+          {/* Glass over DOM content */}
+          <div className="webgl-shape-stage">
+            <div className="webgl-dom-stage">
+              <GlassBackdrop ref={domBackdropRef} className="webgl-dom-card" mode={domMode}>
+                <span className="webgl-dom-eyebrow">DOM content</span>
+                <h3>This card is ordinary HTML, and the glass bends it.</h3>
+                <p>
+                  Headings, paragraphs and buttons sit behind the lens as real elements. The engine keeps
+                  the card as a texture and composites it under the glass wherever the card is on screen.
+                </p>
+                <div className="webgl-dom-tiles">
+                  <span className="webgl-dom-tile coral">Refraction</span>
+                  <span className="webgl-dom-tile light">Light tile</span>
+                  <span className="webgl-dom-tile mint">Dispersion</span>
+                </div>
+                <button type="button" className="webgl-dom-button" onClick={() => setTaps(count => count + 1)}>
+                  Tapped {taps} {taps === 1 ? 'time' : 'times'}
+                </button>
+              </GlassBackdrop>
+              <div ref={domLensRef} className="webgl-dom-lens">
+                <strong className="glass-vibrant">Glass</strong>
+                <small className="glass-vibrant-secondary">over DOM</small>
+              </div>
+            </div>
+            <p className="webgl-stage-caption">
+              {domIsLive
+                ? 'Live: this browser paints the card into a canvas (HTML-in-canvas), so the glass shows every change as it happens. Tap the button and watch the lens.'
+                : 'Snapshot: the card is captured with html2canvas and re-captured when its text or size changes. Tap the button; the lens catches up a moment later.'}
             </p>
           </div>
 

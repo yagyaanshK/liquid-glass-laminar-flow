@@ -139,9 +139,22 @@ The shadow is the same field evaluated at a downward offset and softened; its of
 
 ### Rim Light
 
-`lightAngle` is the direction the light comes from, in degrees (135 = top left). The rim brightens where the surface normal faces the light and, more dimly, on the opposite side. On devices that report orientation, left/right tilt adds up to ±36° to the angle, so the highlights travel around the rim as the device moves. (iOS only delivers orientation events after the page has requested permission; the engine does not prompt.)
+`lightAngle` is the direction the light comes from, in degrees (135 = top left). The rim brightens where the surface normal faces the light and, more dimly, on the opposite side. On devices that report orientation, left/right tilt adds up to ±36° to the angle, so the highlights travel around the rim as the device moves.
 
 The Fresnel term mixes the rim toward the backdrop mirrored across the edge, so the bevel picks up the colour of what is just outside the glass rather than plain white.
+
+**Light glass.** A white highlight cannot define an edge against a bright backdrop. As the scheme goes light, the white share of the Fresnel term and the additive edge highlight are pulled back, and the bevel is *shaded* instead, most on the side facing away from the light. That keeps the rim readable on light content.
+
+**Tilt permission.** iOS Safari sends no orientation events until the page calls `DeviceOrientationEvent.requestPermission()` from a tap. `src/engine/motion.ts` probes for this without prompting (Chrome exposes the same method but grants immediately, so its existence proves nothing) and `MotionPermissionButton` renders an opt-in button only where a prompt is really required. The engine's listener is attached from the start and begins receiving events once permission is granted.
+
+### Vibrancy
+
+Content on the glass takes its colours from what is behind the lens. Alongside `data-glass-scheme`, the engine sets two custom properties on each lens element, from the same backdrop measurement:
+
+- `--glass-fg` — the primary colour: near white on dark glass, near black on light glass.
+- `--glass-fg-secondary` — the backdrop's average colour, saturated and pushed toward the primary, so secondary text is tinted by the content under the glass rather than flat grey.
+
+`.glass-vibrant` and `.glass-vibrant-secondary` in `index.css` apply them. (Blend-mode vibrancy is not used: the glass is drawn on a canvas in a different stacking context from the text, so `mix-blend-mode` on the text has nothing to blend with.)
 
 ### Press Response
 
@@ -164,11 +177,34 @@ The engine reads three media queries every frame:
 | `prefers-reduced-transparency: reduce` | Frost of at least 3, tint of at least 0.72, refraction cut to 35%, no dispersion. The backdrop reads as a soft colour rather than as content. |
 | `prefers-contrast: more` | Tint of at least 0.85, no dispersion or rim light, and a 1.5px outline that contrasts with the glass. |
 
+### Glass Over DOM Content
+
+The source canvas is not the only thing the glass can refract. `engine.addBackdrop(element)` registers a DOM element as a *backdrop*: the engine keeps its rendering as a texture and, every frame, composites it over the source at the element's current client rect into a **scene** texture. The glass shader and the backdrop metrics then read the scene instead of the raw source. Because the texture is placed from the live rect, a backdrop follows scrolling and layout without being re-captured. With no backdrops registered the scene pass is skipped entirely.
+
+There are two ways the texture is produced. `GlassBackdrop` (`src/components/GlassBackdrop.tsx`) picks one and returns a handle to pass to `addBackdrop`:
+
+| | Live (HTML-in-canvas) | Snapshot (fallback) |
+|---|---|---|
+| **How** | The content is the `drawable` child of a `<canvas content="drawable">`. On each `paint` event the engine calls `ctx.drawElementImage(content, …)` into that canvas and re-uploads it. | `html2canvas(element)` with a transparent background. |
+| **Updates** | Whenever the browser would paint the content differently: text, hover states, CSS animations, focus rings. | When the element resizes or its text / children change (debounced 200 ms), or on `engine.refreshBackdrops()`. Hover states and CSS animations are frozen between captures. |
+| **Interactivity** | The content stays focusable and clickable; `drawElementImage` keeps its hit-testing geometry in step with where it is drawn. | Unchanged; it is ordinary DOM. |
+| **Support** | Chromium builds that expose the HTML-in-canvas API (`supportsHtmlInCanvas()`); enabled in Chrome 157 as tested here, behind `chrome://flags/#canvas-draw-element` in older versions. | Every browser. Subject to html2canvas's CSS coverage (no `backdrop-filter`, most `filter` functions, blend modes). |
+
+Live-mode layout note: a canvas cannot size itself to its children, and its child is laid out shrink-to-fit. `GlassBackdrop` therefore pins the content's width to the wrapper's width and the canvas's height to the content's height, and the engine sizes the backing store from the canvas's CSS size. Without this the element image is stretched.
+
+**Layering.** By default the glass canvas is appended to `<body>` at `z-index: -1`, under all DOM, which is right when the glass only refracts a canvas. For glass *over* DOM content, construct the engine with `{ overlayParent, overlayZIndex }` so the canvas sits inside the page's stacking context, above the backdrop elements, and give lens elements a higher `z-index` than the canvas so their own content stays on top (`.glass-above-dom [data-liquid-glass-lens] { z-index: 2 }`). The canvas is `position: fixed`, so no ancestor of `overlayParent` may have a transform or filter.
+
+Append `?dom=snapshot` to the WebGL route to force the fallback in a browser that supports the live path.
+
+### Scroll Edge Effect
+
+`PageShell` replaces the top bar's hard divider with a scroll edge: once the page has scrolled, the border fades out and a band under the bar fades in, where content blurs and dims progressively as it approaches the bar (a `backdrop-filter` blur under a gradient mask). It is a sibling of the bar rather than a child, because a nested `backdrop-filter` can only see its ancestor's backdrop, not the page. The bar and the band carry `data-liquid-glass-ignore`, so DOM snapshots do not include UI that sits above the glass.
+
 ### Not Modelled
 
-- **Refraction of DOM content.** The live route only refracts the source canvas. Text and images in the DOM between the canvas and the glass are not bent; that needs the snapshot route or an HTML-in-canvas API.
-- **Scroll edge effects**, glass-on-glass layering rules, and per-element thickness presets.
-- **Vibrancy** for content on the glass, beyond the `data-glass-scheme` hook.
+- **Backdrops outside their clip.** A backdrop is drawn at its full client rect; if an ancestor clips it (`overflow: hidden`), the glass can still see the clipped part. CSS opacity and transforms other than translation and scale on a backdrop are not reproduced either.
+- **Glass-on-glass** layering rules and per-element thickness presets.
+- **Blend-mode vibrancy**; see Vibrancy above for what is done instead.
 
 ## Smoothness Notes
 
@@ -179,6 +215,8 @@ The engine reads three media queries every frame:
 - The gravity lens mode changes only the UV offset formula; it does not add DOM capture work, extra render passes, or new textures.
 - Backdrop metrics are measured on the GPU and read back as a tiny block (at most 128x8 px) every 6th frame, not by reading the full source canvas.
 - The surface normal costs four extra field evaluations per pixel, but only inside the bevel; the flat centre of a lens skips it.
+- The scene pass (one full-viewport blit plus one quad per backdrop) only runs when a DOM backdrop is registered.
+- Frost is still a single-pass disk blur of up to 128 taps per pixel; it is the most expensive setting in the shader.
 
 ## Integration Example
 
